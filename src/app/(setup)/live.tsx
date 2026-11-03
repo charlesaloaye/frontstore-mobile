@@ -24,7 +24,7 @@ export default function Live() {
   const { name } = useDraft();
   const [copied, setCopied] = useState(false);
   const slug = toSlug(name) || 'mamav';
-  const link = `${slug}.frontstore.app`;
+  const link = `frontstore.app/${slug}`;
   const fullUrl = `https://${link}`;
 
   const copyLink = async () => {

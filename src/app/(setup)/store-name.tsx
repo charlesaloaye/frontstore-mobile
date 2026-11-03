@@ -140,12 +140,12 @@ export default function StoreName() {
           <Labelled label="Store link">
             <View
               accessible
-              accessibilityLabel={`Store link: ${slug || 'yourstore'}.frontstore.app`}
+              accessibilityLabel={`Store link: frontstore.app/${slug || 'yourstore'}`}
               className="h-[54px] flex-row items-center rounded-[14px] border border-line-2 bg-surface pl-4 pr-3.5"
             >
               <T numberOfLines={1} className="shrink text-base">
+                <T className="text-base text-muted">frontstore.app/</T>
                 <T className="font-sans-bold text-base">{slug || 'yourstore'}</T>
-                <T className="text-base text-muted">.frontstore.app</T>
               </T>
             </View>
             {checking ? (

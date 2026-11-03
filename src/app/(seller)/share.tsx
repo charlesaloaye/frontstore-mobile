@@ -43,7 +43,7 @@ export default function ShareStore() {
   const store = me?.store;
   const storeName = store?.store_name || store?.name || 'My Store';
   const username = store?.username || store?.slug || 'mystore';
-  const domain = `${username}.frontstore.app`;
+  const domain = `frontstore.app/${username}`;
   const url = `https://${domain}`;
   const message = `Shop ${storeName} - now taking orders: ${url}`;
 

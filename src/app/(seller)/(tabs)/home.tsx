@@ -3,11 +3,13 @@ import { ActivityIndicator, Pressable, ScrollView, Switch, View } from 'react-na
 import { Link, router } from 'expo-router';
 import { Bell, CheckCircle, Package, Share, Sparkles, X } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button, Screen, T, cx } from '@/components/ui';
 import { BottomSheet } from '@/features/buyer/account';
 import { getMe } from '@/api/auth';
 import { getSellerOrders, getWalletBalance } from '@/api/orders';
+import { getStore } from '@/api/store';
+import { updateStore } from '@/api/account';
 import { formatNaira } from '@/lib/format';
 
 function Stat({ label, value, delta, dark }: { label: string; value: string; delta: string; dark?: boolean }) {
@@ -24,7 +26,9 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [ninaOpen, setNinaOpen] = useState(false);
-  const [ninaActive, setNinaActive] = useState(true);
+  const qc = useQueryClient();
+  const [ninaSaving, setNinaSaving] = useState(false);
+  const [ninaError, setNinaError] = useState('');
 
   const { data: authData, isLoading: authLoading } = useQuery({
     queryKey: ['me'],
@@ -41,11 +45,28 @@ export default function Home() {
     queryFn: () => getSellerOrders(),
   });
 
+  // The store's real assistant setting (same switch as the web dashboard). It answers buyers only on Pro and above.
+  const { data: sellerStore } = useQuery({ queryKey: ['seller-store'], queryFn: getStore });
+  const ninaAvailable = Boolean((sellerStore as any)?.nina_available);
+  const ninaActive = ninaAvailable && Boolean((sellerStore as any)?.nina_enabled);
+  const setNina = async (on: boolean) => {
+    setNinaSaving(true);
+    setNinaError('');
+    try {
+      await updateStore({ nina_enabled: on });
+      await qc.invalidateQueries({ queryKey: ['seller-store'] });
+    } catch (e: any) {
+      setNinaError(e?.message || 'Could not save. Please try again.');
+    } finally {
+      setNinaSaving(false);
+    }
+  };
+
   const user = authData?.user;
   const store = authData?.store;
   const storeName = store?.store_name || store?.name || 'My Store';
   const username = store?.username || store?.slug || 'mystore';
-  const link = `${username}.frontstore.app`;
+  const link = `frontstore.app/${username}`;
   const ownerName = user?.name ? user.name.split(' ')[0] : 'Merchant';
 
   const toShipOrders = ordersData ? ordersData.filter((o) => o.status === 'paid' || o.status === 'packed') : [];
@@ -124,14 +145,14 @@ export default function Home() {
             <View className="flex-row items-center gap-2">
               <View className={cx('h-2 w-2 rounded-full', ninaActive ? 'bg-[#64FFDA]' : 'bg-muted')} />
               <T className="font-sans-bold text-xs tracking-wider text-[#64FFDA] uppercase">
-                {ninaActive ? 'Frontstore Nina AI Active' : 'Frontstore Nina AI Paused'}
+                {ninaActive ? 'Shopping assistant on' : ninaAvailable ? 'Shopping assistant off' : 'Shopping assistant'}
               </T>
             </View>
             <T className="font-sans-bold text-sm text-white">
-              {ninaActive ? 'Monitoring WhatsApp negotiations 24/7' : 'Nina AI is currently paused'}
+              {ninaActive ? 'Answering buyer questions on your store' : ninaAvailable ? 'Tap to turn it on' : 'Included in Pro and Business'}
             </T>
             <T className="text-xs text-on-dark-2">
-              {ninaActive ? 'Auto-closing deals and answering product questions' : 'Tap to enable automatic order taking'}
+              Sizes, delivery and stock questions, day and night
             </T>
           </View>
           <View className="h-10 w-10 items-center justify-center rounded-xl bg-teal/10">
@@ -191,17 +212,6 @@ export default function Home() {
             </Pressable>
           </View>
           <View className="gap-2.5 pt-1">
-            <View className="flex-row items-start gap-3 rounded-2xl border border-line bg-surface p-3.5">
-              <View className="h-9 w-9 items-center justify-center rounded-xl bg-mint">
-                <Package size={18} color="#0B6E4F" />
-              </View>
-              <View className="flex-1 gap-0.5">
-                <T className="font-sans-bold text-sm">Store is Live & Active</T>
-                <T className="text-xs text-muted-2">Your storefront {link} is accepting orders and connected to WhatsApp.</T>
-                <T className="text-[11px] text-muted">Just now</T>
-              </View>
-            </View>
-
             {toShipOrders.length > 0 ? (
               <View className="flex-row items-start gap-3 rounded-2xl border border-line bg-surface p-3.5">
                 <View className="h-9 w-9 items-center justify-center rounded-xl bg-[#F3E3C7]">
@@ -213,18 +223,11 @@ export default function Home() {
                   <T className="text-[11px] text-muted">Today</T>
                 </View>
               </View>
-            ) : null}
-
-            <View className="flex-row items-start gap-3 rounded-2xl border border-line bg-surface p-3.5">
-              <View className="h-9 w-9 items-center justify-center rounded-xl bg-[#DCE7F3]">
-                <Sparkles size={18} color="#1F3F66" />
+            ) : (
+              <View className="items-center rounded-2xl border border-line bg-surface p-4">
+                <T className="text-sm text-muted">You're all caught up.</T>
               </View>
-              <View className="flex-1 gap-0.5">
-                <T className="font-sans-bold text-sm">Nina AI Assistant Active</T>
-                <T className="text-xs text-muted-2">Answering buyer inquiries and closing transactions on WhatsApp 24/7.</T>
-                <T className="text-[11px] text-muted">Yesterday</T>
-              </View>
-            </View>
+            )}
           </View>
           <Button title="Close" className="mt-2 h-11" onPress={() => setNotificationsOpen(false)} />
         </View>
@@ -243,30 +246,26 @@ export default function Home() {
             </Pressable>
           </View>
           <T className="text-sm leading-[21px] text-muted-2">
-            Nina handles WhatsApp chats, checks product stock, answers customer questions, and closes orders automatically.
+            Answers buyer questions about sizes, delivery and stock on your store, day and night, using your product details.
           </T>
 
-          <View className="flex-row items-center justify-between rounded-2xl border border-line bg-surface p-4">
-            <View className="flex-1 pr-3">
-              <T className="font-sans-bold text-[15px]">Automated Sales Agent</T>
-              <T className="text-xs text-muted-2">Allow Nina to negotiate deals and send payment links</T>
+          {ninaAvailable ? (
+            <View className="flex-row items-center justify-between rounded-2xl border border-line bg-surface p-4">
+              <View className="flex-1 pr-3">
+                <T className="font-sans-bold text-[15px]">Show the assistant on my store</T>
+                <T className="text-xs text-muted-2">{ninaActive ? 'On' : 'Off'}</T>
+              </View>
+              <Switch value={ninaActive} disabled={ninaSaving} onValueChange={setNina} trackColor={{ false: '#D9D9D9', true: '#22A35A' }} />
             </View>
-            <Switch
-              value={ninaActive}
-              onValueChange={setNinaActive}
-              trackColor={{ false: '#D9D9D9', true: '#22A35A' }}
-            />
-          </View>
-
-          <View className="rounded-2xl border border-line bg-surface p-4 gap-2">
-            <T className="font-sans-bold text-[13px] text-muted uppercase">Capabilities Active</T>
-            <T className="text-xs text-deep">✓ 24/7 WhatsApp customer reply</T>
-            <T className="text-xs text-deep">✓ Real-time inventory queries</T>
-            <T className="text-xs text-deep">✓ Instant order generation &amp; bank transfer instructions</T>
-          </View>
+          ) : (
+            <View className="rounded-2xl border border-line bg-surface p-4">
+              <T className="text-sm text-deep">The shopping assistant is included in the Pro and Business plans.</T>
+            </View>
+          )}
+          {ninaError ? <T className="text-[13px] text-danger">{ninaError}</T> : null}
 
           <Button
-            title="Save & Done"
+            title="Done"
             className="mt-1 h-[50px]"
             onPress={() => setNinaOpen(false)}
           />

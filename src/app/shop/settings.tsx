@@ -3,7 +3,8 @@ import { ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Screen } from '@/components/ui';
-import { AccountHeader, Group, LinkRow, SwitchRow } from '@/features/buyer/account';
+import { AccountHeader, Group, SwitchRow } from '@/features/buyer/account';
+import { PrivacyRows } from '@/features/account/PrivacyRows';
 import { getNotificationPreferences, updateNotificationPreferences } from '@/api/buyer';
 
 type NoteKey = 'orderWa' | 'orderEmail' | 'push' | 'drops' | 'prices';
@@ -63,8 +64,6 @@ export default function BuyerSettings() {
     updateMutation.mutate({ [k]: val });
   };
 
-  const [pw, setPw] = useState(false);
-
   return (
     <Screen>
       <AccountHeader title="Settings" />
@@ -75,14 +74,8 @@ export default function BuyerSettings() {
           ))}
         </Group>
 
-        <Group title="Login & security">
-          <LinkRow label="Login codes" value="Email or WhatsApp" />
-          <SwitchRow label="Log in with a password" sub="Off: we send a one-time code instead" value={pw} onChange={setPw} />
-        </Group>
-
         <Group title="Privacy">
-          <LinkRow label="Download my data" />
-          <LinkRow label="Delete my account" danger />
+          <PrivacyRows kind="buyer" />
         </Group>
       </ScrollView>
     </Screen>

@@ -2,11 +2,13 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { getToken, removeToken } from './authStore';
 import { router } from 'expo-router';
 
-// Default API Base URL. Uses process.env.EXPO_PUBLIC_API_BASE_URL or process.env.EXPO_PUBLIC_API_URL or defaults to localhost Laravel API.
+// API base URL: EXPO_PUBLIC_API_BASE_URL / EXPO_PUBLIC_API_URL when set; otherwise the
+// local Laravel server in development and the live API in store builds. (Falling back
+// to localhost in a release build left the shipped app unable to reach the server.)
 export const API_BASE_URL = (
   process.env.EXPO_PUBLIC_API_BASE_URL ||
   process.env.EXPO_PUBLIC_API_URL ||
-  'http://localhost:8000/api/v1'
+  (__DEV__ ? 'http://localhost:8000/api/v1' : 'https://frontstore.app/api/v1')
 ).replace(/\/+$/, '');
 
 export const apiClient = axios.create({
