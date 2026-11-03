@@ -82,7 +82,7 @@ export interface Product {
   store?: Store | null;
 }
 
-export type OrderStatus = 'paid' | 'packed' | 'shipped' | 'delivered' | 'refunded' | 'cancelled';
+export type OrderStatus = 'pending' | 'paid' | 'packed' | 'shipped' | 'delivered' | 'refunded' | 'cancelled';
 
 export interface OrderItem {
   id: number;
@@ -108,6 +108,7 @@ export interface Order {
   customer_phone: string;
   customer_email?: string | null;
   shipping_address?: any;
+  delivery_address?: string | null;
   city?: string | null;
   state?: string | null;
   items_summary?: string;

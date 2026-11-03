@@ -19,18 +19,17 @@ export default function StoreStyle() {
         <Heading title="Make it look like you" />
 
         <Card className="flex-row items-end gap-3 rounded-[22px] p-4">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Add logo"
-            // TODO: pick a logo image once an image picker is added to the project
+          {/* Preview of the store badge. A logo photo can be added after setup, on the web dashboard. */}
+          <View
+            accessibilityLabel={`Store badge: ${initialOf(name)}`}
             style={{ backgroundColor: color }}
             className="h-16 w-16 items-center justify-center rounded-[18px] border-[3px] border-surface"
           >
             <T className="font-sans-bold text-2xl text-white">{initialOf(name)}</T>
-          </Pressable>
+          </View>
           <View className="shrink pb-1">
             <T numberOfLines={1} className="font-display-x text-[17px]">{name.trim() || 'Your store'}</T>
-            <T numberOfLines={1} className="text-[13px] text-muted">{toSlug(name)}.frontstore.app</T>
+            <T numberOfLines={1} className="text-[13px] text-muted">frontstore.app/{toSlug(name)}</T>
           </View>
         </Card>
 

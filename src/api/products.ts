@@ -1,27 +1,27 @@
 import { apiGet, apiPost, apiPut, apiDelete } from './client';
 import { Product, AiProductDraftResult } from './types';
+import { productFromServer, productToServer } from './adapters';
 
 /** Fetch seller's products */
 export async function getProducts(params?: { status?: string; search?: string }): Promise<Product[]> {
   const data = await apiGet<any>('/products', params);
-  if (Array.isArray(data)) return data;
-  if (data && Array.isArray(data.data)) return data.data;
-  return [];
+  const list = Array.isArray(data) ? data : data && Array.isArray(data.data) ? data.data : [];
+  return list.map(productFromServer);
 }
 
 /** Fetch product by ID */
 export async function getProduct(id: string | number): Promise<Product> {
-  return apiGet<Product>(`/products/${id}`);
+  return productFromServer(await apiGet<any>(`/products/${id}`));
 }
 
 /** Create new product */
-export async function createProduct(payload: Partial<Product>): Promise<Product> {
-  return apiPost<Product>('/products', payload);
+export async function createProduct(payload: Partial<Product> & { colors?: string[] }): Promise<Product> {
+  return productFromServer(await apiPost<any>('/products', productToServer(payload)));
 }
 
 /** Update product */
-export async function updateProduct(id: string | number, payload: Partial<Product>): Promise<Product> {
-  return apiPut<Product>(`/products/${id}`, payload);
+export async function updateProduct(id: string | number, payload: Partial<Product> & { colors?: string[] }): Promise<Product> {
+  return productFromServer(await apiPut<any>(`/products/${id}`, productToServer(payload)));
 }
 
 /** Soft delete product */

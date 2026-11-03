@@ -88,13 +88,13 @@ export default function OrderDetail() {
   };
 
   const handleRefund = () => {
-    const amountKobo = order?.total_kobo || 4000000;
+    const amountKobo = order?.total_kobo ?? 0;
     refundMutation.mutate({ amountKobo, reason });
   };
 
-  const customerPhone = order?.customer_phone || '08030001122';
-  const customerName = order?.customer_name || 'Chioma Adeyemi';
-  const totalAmountKobo = order?.total_kobo || 4000000;
+  const customerPhone = order?.customer_phone || '';
+  const customerName = order?.customer_name || 'Customer';
+  const totalAmountKobo = order?.total_kobo ?? 0;
 
   return (
     <Screen>
@@ -158,16 +158,20 @@ export default function OrderDetail() {
             <ContactButton label="WhatsApp" onPress={() => Linking.openURL(`https://wa.me/${customerPhone.replace(/\D/g, '')}`)} />
             <ContactButton
               label="Maps"
-              onPress={() => Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(order?.shipping_address || 'Lagos')}`)}
+              onPress={() => Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(String(order?.delivery_address || order?.shipping_address || order?.city || ''))}`)}
             />
           </View>
         </View>
       </ScrollView>
 
       <View style={{ paddingBottom: Math.max(insets.bottom, 16) + 6 }} className="border-t border-line bg-bg px-4 pt-3">
-        {stepIdx === 3 || isRefunded ? (
+        {currentStatus === 'pending' || currentStatus === 'cancelled' ? (
+          <View accessibilityLiveRegion="polite" className="h-14 items-center justify-center rounded-full bg-sand">
+            <T className="font-sans-bold text-base text-deep">{currentStatus === 'pending' ? 'Waiting for the buyer to pay' : 'This order was cancelled'}</T>
+          </View>
+        ) : stepIdx === 3 || isRefunded ? (
           <View accessibilityLiveRegion="polite" className="h-14 items-center justify-center rounded-full bg-mint-2">
-            <T className="font-sans-bold text-base text-deep">{isRefunded ? `Refunded ${formatNaira(totalAmountKobo / 100)}` : 'Delivered - nice work'}</T>
+            <T className="font-sans-bold text-base text-deep">{isRefunded ? `Refunded ${formatNaira(totalAmountKobo / 100)}` : 'Delivered, nice work'}</T>
           </View>
         ) : (
           <Pressable accessibilityRole="button" onPress={advanceStatus} disabled={statusMutation.isPending} className="h-14 flex-row items-center justify-center gap-2 rounded-full bg-green">

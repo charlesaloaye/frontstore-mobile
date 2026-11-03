@@ -40,8 +40,8 @@ export default function ProductActions() {
 
   const close = () => goBack('/products');
 
-  const name = product?.name || 'Àdìrẹ two-piece';
-  const priceKobo = product?.price_kobo ?? 1850000;
+  const name = product?.name || '';
+  const priceKobo = product?.price_kobo ?? 0;
   const isHidden = product?.status === 'hidden';
   const isOut = (product?.stock_count ?? 10) === 0;
 

@@ -62,9 +62,12 @@ export default function EditProduct() {
 
   const save = () => {
     if (submitting) return;
+    const amount = Number(price.replace(/[^\d.]/g, ''));
+    if (!name.trim()) return setErrorMsg('Add a product name.');
+    if (!Number.isFinite(amount) || amount <= 0) return setErrorMsg('Add a price.');
     setSubmitting(true);
     setErrorMsg(null);
-    const numericPriceKobo = Math.round(parseFloat(price.replace(/,/g, '')) * 100) || 1850000;
+    const numericPriceKobo = Math.round(amount * 100);
     saveMutation.mutate({
       name,
       price_kobo: numericPriceKobo,

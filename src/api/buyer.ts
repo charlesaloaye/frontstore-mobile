@@ -1,5 +1,6 @@
 import { apiGet, apiPost, apiPut, apiDelete, apiPatch } from './client';
 import { Store, Product, Order, Address, SavedCard, Review, NotificationPreferences } from './types';
+import { orderFromServer, productFromServer } from './adapters';
 
 /** Discover public marketplace stores */
 export async function getMarketplaceStores(params?: { category?: string; search?: string }): Promise<Store[]> {
@@ -11,25 +12,26 @@ export async function getMarketplaceStores(params?: { category?: string; search?
 
 /** Search products and stores */
 export async function searchMarketplace(query: string): Promise<{ stores: Store[]; products: Product[] }> {
-  return apiGet<{ stores: Store[]; products: Product[] }>('/public/marketplace', { q: query });
+  const r: any = await apiGet<any>('/public/marketplace', { q: query });
+  return { stores: r?.stores ?? [], products: (r?.products ?? []).map(productFromServer) };
 }
 
 /** Get public store details by slug */
 export async function getPublicStore(slug: string): Promise<{ store: Store; products: Product[]; reviews: Review[] }> {
-  return apiGet<{ store: Store; products: Product[]; reviews: Review[] }>(`/public/store/${slug}`);
+  const r: any = await apiGet<any>(`/public/store/${slug}`);
+  return { ...r, products: (r?.products ?? []).map(productFromServer), reviews: r?.reviews ?? [] };
 }
 
 /** Fetch buyer's orders */
 export async function getBuyerOrders(): Promise<Order[]> {
   const data = await apiGet<any>('/buyer/auth/orders');
-  if (Array.isArray(data)) return data;
-  if (data && Array.isArray(data.data)) return data.data;
-  return [];
+  const list = Array.isArray(data) ? data : data && Array.isArray(data.data) ? data.data : [];
+  return list.map(orderFromServer);
 }
 
 /** Track order by ID */
 export async function trackOrder(orderId: string | number): Promise<Order> {
-  return apiGet<Order>(`/public/orders/${orderId}`);
+  return orderFromServer(await apiGet<any>(`/public/orders/${orderId}`));
 }
 
 /** Confirm delivery of an order */
