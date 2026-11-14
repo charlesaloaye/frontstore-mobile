@@ -45,7 +45,7 @@ export default function BuyerCards() {
       setOpen(false);
       queryClient.invalidateQueries({ queryKey: ['buyer-cards'] });
     } catch (err: any) {
-      setTokenError(err.message || 'Could not initialize Paystack card verification.');
+      setTokenError(err.message || 'Could not start the card check.');
     } finally {
       setTokenizing(false);
     }
@@ -99,7 +99,7 @@ export default function BuyerCards() {
             <Lock size={16} color="#0B6E4F" strokeWidth={2} />
           </View>
           <T className="flex-1 text-sm leading-[21px] text-deep">
-            Cards are saved by Paystack. Frontstore never sees or stores your full card number. You approve every payment with your bank.
+            Cards are saved by our licensed payment partner. Frontstore never sees or stores your full card number. You approve every payment with your bank.
           </T>
         </View>
       </ScrollView>
@@ -107,7 +107,7 @@ export default function BuyerCards() {
       <BottomSheet visible={open} onClose={() => setOpen(false)}>
         <T className="font-display text-xl">Add a card</T>
         <T className="text-[15px] leading-[22px] text-muted-2">
-          You’ll enter your card on Paystack’s secure page. We’ll charge ₦50 to check it and refund it straight away.
+          You’ll enter your card on our payment partner’s secure page. We’ll charge ₦50 to check it and refund it straight away.
         </T>
         {tokenError ? (
           <View className="rounded-xl bg-danger/10 p-2.5">

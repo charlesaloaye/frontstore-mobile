@@ -101,7 +101,7 @@ export default function Payouts() {
 
         <View className="flex-row items-baseline justify-between pt-1">
           <T className="font-sans-bold text-[17px]">History</T>
-          <T className="text-[13px] text-muted">Paystack transfer fees apply</T>
+          <T className="text-[13px] text-muted">Frontstore covers the transfer fee</T>
         </View>
         <View className="rounded-[20px] border border-line bg-surface">
           {history && history.length > 0 ? (
