@@ -6,6 +6,7 @@ import { ChevronRight, Truck, X } from 'lucide-react-native';
 import { Button, Screen, T, cx } from '@/components/ui';
 import { BottomSheet, SheetField } from '@/features/buyer/account';
 import { PrivacyActions } from '@/features/account/PrivacyActions';
+import { StoreSwitcher } from '@/features/seller/StoreSwitcher';
 import { naira } from '@/lib/format';
 import { getMe } from '@/api/auth';
 import { getStore } from '@/api/store';
@@ -128,6 +129,8 @@ export default function Settings() {
             <T className="font-sans-bold text-[13px]">Edit</T>
           </Pressable>
         </View>
+
+        <StoreSwitcher />
 
         <View className="gap-0.5 rounded-[22px] bg-deep p-4">
           <T className="font-sans-bold text-bg">{plan} plan</T>
