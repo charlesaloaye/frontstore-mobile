@@ -131,7 +131,7 @@ export default function Home() {
         <View className="flex-row gap-3">
           <Stat label="Total Orders" value={String(ordersData?.length ?? 0)} delta={`${ordersData?.length ?? 0} total`} />
           <Stat label="To Ship" value={String(toShipOrders.length)} delta={`${toShipOrders.length} pending`} dark />
-          <Stat label="Available" value={formatNaira(balanceKobo / 100)} delta="Paystack" />
+          <Stat label="Available" value={formatNaira(balanceKobo / 100)} delta="Ready to withdraw" />
         </View>
 
         {/* Nina AI Status Banner */}

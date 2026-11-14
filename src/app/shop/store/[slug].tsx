@@ -324,7 +324,7 @@ export default function BuyerStore() {
                   )}
                 >
                   <T className={cx('font-sans-bold text-xs', paymentMethod === 'card' ? 'text-green' : 'text-ink')}>
-                    Card / Transfer (Paystack)
+                    Card or bank transfer
                   </T>
                 </Pressable>
                 <Pressable
