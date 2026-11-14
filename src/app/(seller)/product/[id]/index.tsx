@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, Share as RNShare, View } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ban, Copy, EyeOff, Pencil, Share, Trash2, type LucideIcon } from 'lucide-react-native';
+import { Ban, Check, Copy, EyeOff, Pencil, Share, Trash2, type LucideIcon } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { T, cx } from '@/components/ui';
 import { formatNaira } from '@/lib/format';
 import { Grip, goBack } from '@/features/seller/parts';
 import { getProduct, updateProduct } from '@/api/products';
+import { getMe } from '@/api/auth';
 
 function Row({ Icon, label, onPress, danger, className }: { Icon: LucideIcon; label: string; onPress: () => void; danger?: boolean; className?: string }) {
   const color = danger ? '#A8321E' : '#0E1A15';
@@ -23,6 +25,12 @@ export default function ProductActions() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const [copied, setCopied] = useState(false);
+
+  const { data: me } = useQuery({
+    queryKey: ['me'],
+    queryFn: getMe,
+  });
 
   const { data: product } = useQuery({
     queryKey: ['product', id],
@@ -45,8 +53,31 @@ export default function ProductActions() {
   const isHidden = product?.status === 'hidden';
   const isOut = (product?.stock_count ?? 10) === 0;
 
+  const storeSlug = me?.store?.username || me?.store?.slug || 'store';
+  const productSlug = product?.slug || id;
+  const productUrl = (product as any)?.public_url || `https://frontstore.app/${storeSlug}/${productSlug}`;
+
+  const shareProduct = () => {
+    RNShare.share({
+      message: `${name}: ${productUrl}`,
+      url: productUrl,
+      title: name,
+    }).catch(() => {});
+  };
+
+  const copyProductLink = async () => {
+    await Clipboard.setStringAsync(productUrl);
+    setCopied(true);
+    setTimeout(() => {
+      setCopied(false);
+      close();
+    }, 1200);
+  };
+
+  // Sold out is one tap. Back in stock opens the editor so the seller enters the real count.
   const toggleSoldOut = () => {
-    updateMutation.mutate({ stock_count: isOut ? 10 : 0 });
+    if (isOut) router.replace(`/product/${id}/edit`);
+    else updateMutation.mutate({ stock_count: 0 });
   };
 
   const toggleHide = () => {
@@ -79,7 +110,8 @@ export default function ProductActions() {
           </View>
         </View>
         <Row Icon={Pencil} label="Edit product" onPress={() => router.replace(`/product/${id}/edit`)} />
-        <Row Icon={Share} label="Share product" onPress={() => router.replace('/share')} />
+        <Row Icon={Share} label="Share product link" onPress={shareProduct} />
+        <Row Icon={copied ? Check : Copy} label={copied ? 'Link copied!' : 'Copy product link'} onPress={copyProductLink} />
         <Row Icon={Ban} label={isOut ? 'Mark as in stock' : 'Mark as sold out'} onPress={toggleSoldOut} />
         <Row Icon={EyeOff} label={isHidden ? 'Show on store' : 'Hide from store'} onPress={toggleHide} />
         <Row Icon={Trash2} label="Delete product" danger className="border-t border-[#F0ECE3]" onPress={() => router.replace(`/product/${id}/delete`)} />

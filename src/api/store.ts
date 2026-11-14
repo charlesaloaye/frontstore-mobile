@@ -1,6 +1,7 @@
-import { apiGet, apiPost } from './client';
+import { apiGet, apiPost, apiPut } from './client';
 import { Store, Bank, Country, Currency } from './types';
 import { setToken } from './authStore';
+import { registerForPush } from '@/lib/push';
 
 /** Check if a store username / subdomain is available */
 export async function checkSubdomainAvailable(username: string): Promise<boolean> {
@@ -77,6 +78,7 @@ export async function completeStoreSetup(params: {
   const token = res.token;
   if (token) {
     await setToken(token);
+    registerForPush();
   }
 
   const store = res.store || res.data?.store;
@@ -88,3 +90,17 @@ export async function getStore(): Promise<Store> {
   return apiGet<Store>('/store');
 }
 
+
+/** Upload the store logo (store must exist) */
+export async function uploadStoreLogo(fileUri: string): Promise<{ url: string }> {
+  const formData = new FormData();
+  const filename = fileUri.split('/').pop() || 'logo.jpg';
+  const match = /\.(\w+)$/.exec(filename);
+  formData.append('logo', { uri: fileUri, name: filename, type: match ? `image/${match[1]}` : 'image/jpeg' } as any);
+  return apiPost<{ url: string }>('/store/upload-logo', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+}
+
+/** Update store profile (name, bio, brand colour) */
+export async function updateStore(payload: { store_name?: string; store_bio?: string | null; primary_color?: string }): Promise<Store> {
+  return apiPut<Store>('/store', payload);
+}

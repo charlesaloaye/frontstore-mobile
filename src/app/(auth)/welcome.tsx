@@ -1,9 +1,10 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from 'react-native';
-import { Link } from 'expo-router';
+import { router } from 'expo-router';
 import { ArrowRight, Check } from 'lucide-react-native';
 import { Button, LogoMark, Screen, T } from '@/components/ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { setHasSeenOnboarding } from '@/api/authStore';
 
 const slides = [
   { step: 'Step 1 · Build', title: 'Your shop, ready in minutes.', body: 'Snap a photo, add a price and sizes. Your store goes live the moment you save.', bg: '#E7DCC8' },
@@ -124,6 +125,10 @@ export default function Welcome() {
   const [i, setI] = useState(0);
   const scroller = useRef<ScrollView>(null);
 
+  useEffect(() => {
+    setHasSeenOnboarding(true);
+  }, []);
+
   const go = (k: number) => {
     setI(k);
     scroller.current?.scrollTo({ x: k * width, animated: true });
@@ -134,6 +139,21 @@ export default function Welcome() {
   };
   const isLast = i === slides.length - 1;
 
+  const handleSkip = async () => {
+    await setHasSeenOnboarding(true);
+    router.replace('/login');
+  };
+
+  const handleLogin = async () => {
+    await setHasSeenOnboarding(true);
+    router.replace('/login');
+  };
+
+  const handleSignup = async () => {
+    await setHasSeenOnboarding(true);
+    router.replace('/signup');
+  };
+
   return (
     <Screen>
       {/* Top bar */}
@@ -142,11 +162,14 @@ export default function Welcome() {
           <LogoMark size={32} />
           <T className="font-display-x text-[20px] tracking-[-0.4px]">frontstore</T>
         </View>
-        <Link href="/home" asChild>
-          <Pressable accessibilityRole="link" className="h-11 justify-center px-3.5">
-            <T className="font-sans-semibold text-[15px] text-muted-2">Skip</T>
-          </Pressable>
-        </Link>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Skip onboarding"
+          onPress={handleSkip}
+          className="h-11 justify-center px-3.5"
+        >
+          <T className="font-sans-semibold text-[15px] text-muted-2">Skip</T>
+        </Pressable>
       </View>
 
       <ScrollView
@@ -192,22 +215,26 @@ export default function Welcome() {
         </View>
         {isLast ? (
           <View className="gap-2">
-            <Button title="Create my free store" href="/signup" />
-            <Link href="/login" asChild>
-              <Pressable accessibilityRole="link" className="h-11 items-center justify-center">
-                <T className="font-sans-semibold text-[15px] text-muted-2">
-                  I already have a store · <T className="font-sans-bold text-[15px] text-green">Log in</T>
-                </T>
-              </Pressable>
-            </Link>
+            <Button title="Create my free store" onPress={handleSignup} />
+            <Pressable
+              accessibilityRole="button"
+              onPress={handleLogin}
+              className="h-11 items-center justify-center"
+            >
+              <T className="font-sans-semibold text-[15px] text-muted-2">
+                I already have a store · <T className="font-sans-bold text-[15px] text-green">Log in</T>
+              </T>
+            </Pressable>
           </View>
         ) : (
           <View className="flex-row gap-2.5">
-            <Link href="/login" asChild>
-              <Pressable accessibilityRole="link" className="h-14 justify-center rounded-full border border-line-2 px-[22px]">
-                <T className="font-sans-bold text-base">Log in</T>
-              </Pressable>
-            </Link>
+            <Pressable
+              accessibilityRole="button"
+              onPress={handleLogin}
+              className="h-14 justify-center rounded-full border border-line-2 px-[22px]"
+            >
+              <T className="font-sans-bold text-base">Log in</T>
+            </Pressable>
             <Button
               title="Next"
               kind="dark"

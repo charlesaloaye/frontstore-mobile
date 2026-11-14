@@ -135,7 +135,7 @@ export default function BuyerTrack() {
             <T className="font-sans-bold text-base text-white">Rate your order</T>
           </Pressable>
         ) : (
-          <Pressable accessibilityRole="button" onPress={handleConfirm} className="h-[54px] flex-1 items-center justify-center rounded-full bg-green">
+          <Pressable accessibilityRole="button" onPress={handleConfirm} className="h-[54px] flex-1 items-center justify-center rounded-full bg-deep">
             <T className="font-sans-bold text-base text-white">I've received it</T>
           </Pressable>
         )}

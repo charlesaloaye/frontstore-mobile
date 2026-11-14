@@ -21,6 +21,8 @@ export type SetupDraft = {
   owner_name?: string;
   email?: string;
   phone_number?: string;
+  /** Local logo image; uploaded once setup has created the store. */
+  logo_uri?: string;
 };
 
 let draft: SetupDraft = {

@@ -1,166 +1,132 @@
 import { useEffect, useRef, useState } from 'react';
+import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { createAiProductDraft, getAiProductDraftStatus, uploadProductImage } from '@/api/products';
+import type { AiProductDraftResult } from '@/api/types';
 
-export const MAX_PHOTOS = 3;
-const POLL_MS = 2000;
-const POLL_LIMIT = 30; // about a minute
+export type PhotoStage = 'empty' | 'reading' | 'filled';
+export type Photo = { uri: string; url: string };
 
-export type PhotoDraftResult = {
-  name?: string;
-  priceNaira?: string;
-  category?: string;
-  description?: string;
-  colours?: string[];
-  priceRange?: [number, number] | null;
-};
-
-export type DraftStatus = 'idle' | 'uploading' | 'reading' | 'done' | 'failed' | 'manual';
-
-type Photo = { uri: string; url?: string };
+const MAX_PHOTOS = 3;
+const POLL_MS = 1000;
+// The backend queue worker runs once a minute, so allow for that wait.
+const GIVE_UP_MS = 90000;
 
 /**
- * Real photo-to-product flow: pick photos (camera or gallery), upload them,
- * ask the AI to read them, and hand the result back. Nothing is made up: if a
- * step fails the seller fills the form in themselves.
- *
- * `prepare` runs before the first upload (onboarding uses it to create the
- * store, which is what gives the app a login to upload with).
+ * Photo-first product drafting: pick from camera or gallery, upload, ask the
+ * AI draft job to read the photos, then hand the result to `onDraft`.
+ * If the AI can't read them (failed or slow), the form opens empty instead.
  */
-export function usePhotoDraft({ prepare, onResult }: { prepare?: () => Promise<boolean>; onResult: (r: PhotoDraftResult) => void }) {
+export function usePhotoDraft(onDraft: (draft: AiProductDraftResult) => void) {
+  const [stage, setStage] = useState<PhotoStage>('empty');
   const [photos, setPhotos] = useState<Photo[]>([]);
-  const [status, setStatus] = useState<DraftStatus>('idle');
-  const [message, setMessage] = useState('');
-  const cancelled = useRef(false);
-  const alive = useRef(true);
-  useEffect(() => () => { alive.current = false; cancelled.current = true; }, []);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const poll = useRef<ReturnType<typeof setInterval> | null>(null);
+  const onDraftRef = useRef(onDraft);
+  onDraftRef.current = onDraft;
 
-  const pick = async (source: 'camera' | 'library') => {
-    const room = MAX_PHOTOS - photos.length;
-    if (room <= 0) return;
-    setMessage('');
-    try {
-      const perm = source === 'camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) {
-        setMessage(source === 'camera' ? 'Allow camera access in your phone settings to take a photo.' : 'Allow photo access in your phone settings to choose a photo.');
-        return;
-      }
-      const res = source === 'camera'
-        ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 })
-        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: room > 1, selectionLimit: room, quality: 0.8 });
-      if (res.canceled || !res.assets?.length) return;
-
-      const added = res.assets.slice(0, room).map((a) => ({ uri: a.uri }));
-      const isFirst = photos.length === 0;
-      const next = [...photos, ...added];
-      setPhotos(next);
-      const uploaded = await upload(next);
-      if (uploaded && isFirst) await analyse(uploaded);
-    } catch (e: any) {
-      setMessage(e?.message || 'Could not open your photos. Please try again.');
-    }
+  const stopPolling = () => {
+    if (poll.current) clearInterval(poll.current);
+    poll.current = null;
   };
+  useEffect(() => stopPolling, []);
 
-  /** Upload any photo not uploaded yet. Returns the full list, or null if nothing could be uploaded. */
-  const upload = async (list: Photo[]): Promise<Photo[] | null> => {
-    if (prepare && !list.some((p) => p.url)) {
-      setStatus('uploading');
-      const ok = await prepare();
-      if (!ok) {
-        setStatus('failed');
-        return null;
-      }
-    }
-    setStatus((s) => (s === 'idle' || s === 'failed' ? 'uploading' : s));
-    const out = await Promise.all(
-      list.map(async (p) => {
-        if (p.url) return p;
-        try {
-          const r: any = await uploadProductImage(p.uri);
-          const url = r?.url || r?.data?.url;
-          return url ? { ...p, url } : p;
-        } catch {
-          return p;
-        }
-      }),
-    );
-    if (!alive.current) return null;
-    const good = out.filter((p) => p.url);
-    setPhotos(good);
-    if (good.length < out.length) {
-      setMessage(good.length ? 'Some photos could not be uploaded. Try adding them again.' : 'Your photo could not be uploaded. Check your connection and try again.');
-    }
-    if (!good.length) {
-      setStatus('idle');
-      return null;
-    }
-    setStatus((s) => (s === 'uploading' ? 'manual' : s));
-    return good;
-  };
-
-  /** Ask the AI to read the uploaded photos, polling until it finishes. */
-  const analyse = async (list: Photo[] = photos) => {
-    const urls = list.map((p) => p.url).filter(Boolean) as string[];
-    if (!urls.length) return;
-    cancelled.current = false;
-    setStatus('reading');
-    setMessage('');
+  const readPhotos = async (urls: string[]) => {
+    stopPolling();
+    setStage('reading');
     try {
       const { job_id } = await createAiProductDraft(urls);
-      for (let i = 0; i < POLL_LIMIT; i++) {
-        await new Promise((r) => setTimeout(r, POLL_MS));
-        if (cancelled.current || !alive.current) return;
-        const d = await getAiProductDraftStatus(job_id);
-        if (d.status === 'completed') {
-          onResult({
-            name: d.title || '',
-            priceNaira: d.suggested_price_kobo ? String(Math.round(d.suggested_price_kobo / 100)) : '',
-            category: d.category || '',
-            description: d.description || '',
-            colours: d.colors || [],
-            priceRange: d.price_min_kobo && d.price_max_kobo ? [Math.round(d.price_min_kobo / 100), Math.round(d.price_max_kobo / 100)] : null,
-          });
-          setStatus('done');
-          return;
+      const startedAt = Date.now();
+      poll.current = setInterval(async () => {
+        try {
+          const result = await getAiProductDraftStatus(job_id);
+          if (result.status === 'completed') {
+            stopPolling();
+            onDraftRef.current(result);
+            setStage('filled');
+          } else if (result.status === 'failed' || Date.now() - startedAt > GIVE_UP_MS) {
+            stopPolling();
+            setError('Nina couldn’t read these photos. Fill in the details yourself.');
+            setStage('filled');
+          }
+        } catch {
+          // Network blip: keep polling until the give-up time.
+          if (Date.now() - startedAt > GIVE_UP_MS) {
+            stopPolling();
+            setError('Nina couldn’t read these photos. Fill in the details yourself.');
+            setStage('filled');
+          }
         }
-        if (d.status === 'failed') break;
-      }
-      if (!cancelled.current) {
-        setStatus('failed');
-        setMessage('Nina couldn’t read this photo. Fill in the details yourself.');
-      }
+      }, POLL_MS);
     } catch (e: any) {
-      if (!alive.current) return;
-      setStatus('failed');
-      // e.g. the plan's AI limit is used up: the server says so.
-      setMessage(e?.message || 'Nina couldn’t read this photo. Fill in the details yourself.');
+      setError(e.message || 'Nina couldn’t read these photos. Fill in the details yourself.');
+      setStage('filled');
     }
   };
 
-  /** Stop waiting for the AI and fill the form in by hand. */
-  const skip = () => {
-    cancelled.current = true;
-    setStatus('manual');
+  const addFrom = async (source: 'camera' | 'library') => {
+    const room = MAX_PHOTOS - photos.length;
+    if (room <= 0 || uploading) return;
+    setError(null);
+
+    if (source === 'camera') {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        setError('Allow camera access in Settings to take product photos.');
+        return;
+      }
+    }
+
+    const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.8 };
+    const res = source === 'camera'
+      ? await ImagePicker.launchCameraAsync(options)
+      : await ImagePicker.launchImageLibraryAsync({ ...options, allowsMultipleSelection: true, selectionLimit: room });
+    if (res.canceled || !res.assets?.length) return;
+
+    setUploading(true);
+    const uris = res.assets.slice(0, room).map((a) => a.uri);
+    const results = await Promise.allSettled(uris.map((uri) => uploadProductImage(uri)));
+    setUploading(false);
+
+    const added: Photo[] = [];
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled' && r.value?.url) added.push({ uri: uris[i], url: r.value.url });
+    });
+    if (added.length < uris.length) {
+      setError(added.length ? 'Some photos didn’t upload. Try those again.' : 'Photos didn’t upload. Check your connection and try again.');
+    }
+    if (!added.length) return;
+
+    const next = [...photos, ...added];
+    setPhotos(next);
+    // Only the first batch is read by AI; later photos just get added.
+    if (stage === 'empty') readPhotos(next.map((p) => p.url));
   };
 
-  const removePhoto = (i: number) => setPhotos((p) => p.filter((_, j) => j !== i));
+  /** Ask camera or gallery, like the share sheet in the designs. */
+  const pick = () => {
+    Alert.alert('Add product photos', undefined, [
+      { text: 'Take a photo', onPress: () => addFrom('camera') },
+      { text: 'Choose from gallery', onPress: () => addFrom('library') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const remove = (uri: string) => setPhotos((ps) => ps.filter((p) => p.uri !== uri));
+
+  /** Re-run the AI on the current photos. */
+  const reread = () => photos.length && readPhotos(photos.map((p) => p.url));
+
+  /** Skip the AI and fill the form by hand. */
+  const skip = () => {
+    stopPolling();
+    setStage('filled');
+  };
 
   return {
-    photos,
-    status,
-    message,
-    pick,
-    analyse: () => analyse(),
-    skip,
-    removePhoto,
-    imageUrls: photos.map((p) => p.url).filter(Boolean) as string[],
-    busy: status === 'uploading' || status === 'reading',
-    formOpen: status === 'done' || status === 'failed' || status === 'manual',
+    stage, photos, uploading, error, pick, remove, reread, skip,
+    canAddMore: photos.length < MAX_PHOTOS,
+    imageUrls: photos.map((p) => p.url),
   };
-}
-
-/** "18,500" / "₦18,500" -> 18500, or null when it isn't a positive amount. */
-export function parseNaira(v: string): number | null {
-  const n = Number(String(v).replace(/[^\d.]/g, ''));
-  return Number.isFinite(n) && n > 0 ? n : null;
 }

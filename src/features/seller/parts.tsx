@@ -57,7 +57,7 @@ export function Toggle({ value, onChange, label }: { value: boolean; onChange: (
 }
 
 /** Four-point sparkle used for the Nina AI badges. */
-export function Sparkle({ size = 12, color = '#128C7E' }: { size?: number; color?: string }) {
+export function Sparkle({ size = 12, color = '#07261C' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
       <Path d="M12 2l2.2 6.5L21 11l-6.8 2.5L12 20l-2.2-6.5L3 11l6.8-2.5z" />

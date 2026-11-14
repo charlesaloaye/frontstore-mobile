@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { ScrollView } from 'react-native';
+import { Platform, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Screen } from '@/components/ui';
-import { AccountHeader, Group, SwitchRow } from '@/features/buyer/account';
-import { PrivacyRows } from '@/features/account/PrivacyRows';
+import { AccountHeader, Group, LinkRow, SwitchRow } from '@/features/buyer/account';
 import { getNotificationPreferences, updateNotificationPreferences } from '@/api/buyer';
+import { PrivacyActions } from '@/features/account/PrivacyActions';
 
 type NoteKey = 'orderWa' | 'orderEmail' | 'push' | 'drops' | 'prices';
 
@@ -34,8 +34,8 @@ export default function BuyerSettings() {
   useEffect(() => {
     if (prefs) {
       setNotes({
-        orderWa: prefs.order_whatsapp ?? true,
-        orderEmail: prefs.order_email ?? true,
+        orderWa: prefs.whatsapp_order_updates ?? true,
+        orderEmail: prefs.email_notifications ?? true,
         push: prefs.push_notifications ?? true,
         drops: prefs.new_drops ?? false,
         prices: prefs.price_drops ?? true,
@@ -47,8 +47,8 @@ export default function BuyerSettings() {
     mutationFn: (updated: Partial<Record<NoteKey, boolean>>) => {
       const current = { ...notes, ...updated };
       return updateNotificationPreferences({
-        order_whatsapp: current.orderWa,
-        order_email: current.orderEmail,
+        whatsapp_order_updates: current.orderWa,
+        email_notifications: current.orderEmail,
         push_notifications: current.push,
         new_drops: current.drops,
         price_drops: current.prices,
@@ -69,13 +69,18 @@ export default function BuyerSettings() {
       <AccountHeader title="Settings" />
       <ScrollView contentContainerClassName="gap-4 px-4 pt-2" contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
         <Group title="Notifications">
-          {NOTES.map(([k, label, sub]) => (
+          {/* No push on Android (no Firebase), so no app-notification switch there. */}
+          {NOTES.filter(([k]) => k !== 'push' || Platform.OS === 'ios').map(([k, label, sub]) => (
             <SwitchRow key={k} label={label} sub={sub || undefined} value={notes[k]} onChange={(v) => handleToggle(k, v)} />
           ))}
         </Group>
 
+        <Group title="Login & security">
+          <LinkRow label="Login codes" value="Email or WhatsApp" />
+        </Group>
+
         <Group title="Privacy">
-          <PrivacyRows kind="buyer" />
+          <PrivacyActions />
         </Group>
       </ScrollView>
     </Screen>

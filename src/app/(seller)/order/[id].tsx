@@ -36,7 +36,7 @@ export default function OrderDetail() {
   const [refundOpen, setRefundOpen] = useState(false);
   const [reason, setReason] = useState(REASONS[0]);
   const [reasonOpen, setReasonOpen] = useState(false);
-  const [courierName, setCourierName] = useState('GIG Logistics');
+  const [courierName, setCourierName] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
   const [shipModalOpen, setShipModalOpen] = useState(false);
 
@@ -56,7 +56,7 @@ export default function OrderDetail() {
   });
 
   const refundMutation = useMutation({
-    mutationFn: (args: { amountKobo: number; reason: string }) => refundOrder(id!, args.amountKobo, args.reason),
+    mutationFn: (args: { reason: string }) => refundOrder(id!, args.reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['order', id] });
       queryClient.invalidateQueries({ queryKey: ['seller-orders'] });
@@ -87,14 +87,26 @@ export default function OrderDetail() {
     });
   };
 
-  const handleRefund = () => {
-    const amountKobo = order?.total_kobo ?? 0;
-    refundMutation.mutate({ amountKobo, reason });
-  };
+  const handleRefund = () => refundMutation.mutate({ reason });
 
   const customerPhone = order?.customer_phone || '';
   const customerName = order?.customer_name || 'Customer';
+  const address: string = order?.delivery_address || order?.shipping_address || '';
   const totalAmountKobo = order?.total_kobo ?? 0;
+  const netKobo = order?.merchant_net_amount != null ? Math.round(Number(order.merchant_net_amount) * 100) : totalAmountKobo;
+  const isPaid = order?.payment_status === 'paid' || isRefunded;
+  const actionError = (statusMutation.error || refundMutation.error) as Error | null;
+
+  if (isLoading || !order) {
+    return (
+      <Screen>
+        <BackHeader title="Order" sub="Order Details" fallback="/orders" />
+        <View className="flex-1 items-center justify-center">
+          {isLoading ? <ActivityIndicator color="#0B6E4F" /> : <T className="text-muted-2">Order not found.</T>}
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>
@@ -103,7 +115,7 @@ export default function OrderDetail() {
         sub="Order Details"
         fallback="/orders"
         right={
-          isRefunded ? (
+          isRefunded || !isPaid ? (
             <View className="w-11" />
           ) : (
             <Pressable accessibilityRole="button" accessibilityLabel="Refund" onPress={() => setRefundOpen(true)} className="h-11 justify-center px-3">
@@ -116,7 +128,11 @@ export default function OrderDetail() {
       <ScrollView contentContainerClassName="gap-3 px-4 pb-6 pt-1">
         <View className="gap-3 rounded-[20px] border border-line bg-surface p-4">
           <View className="flex-row items-center justify-between">
-            <Tag label={`Paid · ${order?.payment_method || 'Card'}`} bg="#CFE8DC" fg="#07261C" />
+            <Tag
+              label={isPaid ? `Paid${order.payment_method ? ` · ${order.payment_method}` : ''}` : 'Awaiting payment'}
+              bg={isPaid ? '#CFE8DC' : '#FBEFD9'}
+              fg={isPaid ? '#07261C' : '#7A4B06'}
+            />
             <Tag label={isRefunded ? 'Refunded' : STEP_LABELS[stepIdx]} bg={isRefunded ? '#FBE7E2' : '#CFE8DC'} fg={isRefunded ? '#A8321E' : '#07261C'} />
           </View>
           <View className="flex-row gap-1.5" accessibilityLabel={`Progress: ${STEP_LABELS[stepIdx]}`}>
@@ -143,7 +159,7 @@ export default function OrderDetail() {
             </View>
             <View className="flex-row justify-between">
               <T className="font-sans-bold text-sm text-green">You receive</T>
-              <T className="font-sans-bold text-sm text-green">{formatNaira(totalAmountKobo / 100)}</T>
+              <T className="font-sans-bold text-sm text-green">{formatNaira(netKobo / 100)}</T>
             </View>
           </View>
         </View>
@@ -151,30 +167,27 @@ export default function OrderDetail() {
         <View className="gap-2.5 rounded-[20px] border border-line bg-surface px-4 py-3.5">
           <View className="gap-0.5">
             <T className="font-sans-bold text-[15px]">{customerName}</T>
-            <T className="text-[13px] text-muted-2">{order?.shipping_address || '14 Adeniran Ogunsanya St, Surulere'}</T>
+            {address ? <T className="text-[13px] text-muted-2">{address}</T> : null}
           </View>
-          <View className="flex-row gap-2">
+          {customerPhone ? <View className="flex-row gap-2">
             <ContactButton label="Call" onPress={() => Linking.openURL(`tel:${customerPhone}`)} />
             <ContactButton label="WhatsApp" onPress={() => Linking.openURL(`https://wa.me/${customerPhone.replace(/\D/g, '')}`)} />
             <ContactButton
               label="Maps"
-              onPress={() => Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(String(order?.delivery_address || order?.shipping_address || order?.city || ''))}`)}
+              onPress={() => Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(address || 'Lagos')}`)}
             />
-          </View>
+          </View> : null}
         </View>
       </ScrollView>
 
-      <View style={{ paddingBottom: Math.max(insets.bottom, 16) + 6 }} className="border-t border-line bg-bg px-4 pt-3">
-        {currentStatus === 'pending' || currentStatus === 'cancelled' ? (
-          <View accessibilityLiveRegion="polite" className="h-14 items-center justify-center rounded-full bg-sand">
-            <T className="font-sans-bold text-base text-deep">{currentStatus === 'pending' ? 'Waiting for the buyer to pay' : 'This order was cancelled'}</T>
-          </View>
-        ) : stepIdx === 3 || isRefunded ? (
+      <View style={{ paddingBottom: Math.max(insets.bottom, 16) + 6 }} className="gap-2 border-t border-line bg-bg px-4 pt-3">
+        {actionError ? <T accessibilityLiveRegion="polite" className="text-center text-sm text-danger">{actionError.message}</T> : null}
+        {stepIdx === 3 || isRefunded || currentStatus === 'cancelled' ? (
           <View accessibilityLiveRegion="polite" className="h-14 items-center justify-center rounded-full bg-mint-2">
-            <T className="font-sans-bold text-base text-deep">{isRefunded ? `Refunded ${formatNaira(totalAmountKobo / 100)}` : 'Delivered, nice work'}</T>
+            <T className="font-sans-bold text-base text-deep">{isRefunded ? `Refunded ${formatNaira(totalAmountKobo / 100)}` : currentStatus === 'cancelled' ? 'Cancelled' : 'Delivered - nice work'}</T>
           </View>
         ) : (
-          <Pressable accessibilityRole="button" onPress={advanceStatus} disabled={statusMutation.isPending} className="h-14 flex-row items-center justify-center gap-2 rounded-full bg-green">
+          <Pressable accessibilityRole="button" onPress={advanceStatus} disabled={statusMutation.isPending} className="h-14 flex-row items-center justify-center gap-2 rounded-full bg-deep">
             {statusMutation.isPending ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
             <T className="font-sans-bold text-[17px] text-white">{NEXT_LABELS[currentStatus] || 'Update Status'}</T>
           </Pressable>
@@ -196,7 +209,7 @@ export default function OrderDetail() {
               <T className="font-sans-bold text-sm">Tracking Number (optional)</T>
               <TextInput value={trackingNumber} onChangeText={setTrackingNumber} placeholder="GIG-44810273" className="h-12 rounded-xl border border-line-2 bg-surface px-3 font-sans text-base" />
             </View>
-            <Pressable accessibilityRole="button" onPress={confirmShipment} className="h-[54px] items-center justify-center rounded-full bg-green">
+            <Pressable accessibilityRole="button" onPress={confirmShipment} disabled={!courierName.trim()} className={cx('h-[54px] items-center justify-center rounded-full bg-deep', !courierName.trim() && 'opacity-40')}>
               <T className="font-sans-bold text-base text-white">Confirm Shipped</T>
             </Pressable>
           </View>

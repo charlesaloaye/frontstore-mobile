@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { Link, type Href } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Screen, T } from '@/components/ui';
@@ -19,21 +19,21 @@ type Tab = 'active' | 'past';
 
 function OrderCard({ o }: { o: any }) {
   const orderId = o.id;
-  const storeName = o.store?.name ?? 'Store';
+  const storeName = o.store?.name || o.store?.store_name || 'Store';
   const storeInitial = storeName[0] ?? 'S';
-  const storeColor = o.store?.primary_color ?? '#0B6E4F';
+  const storeColor = o.store?.primary_color || o.store?.store_color || '#0B6E4F';
   const totalAmount = o.total_amount;
-  const statusKey = o.order_status === 'shipped'
+  const statusKey = o.order_status === 'shipped' || o.order_status === 'processing'
     ? 'out'
-    : o.order_status === 'delivered'
+    : o.order_status === 'delivered' || o.order_status === 'completed'
       ? 'done'
       : o.order_status === 'refunded'
         ? 'refunded'
         : 'paid';
   const st = STATUS[statusKey as keyof typeof STATUS] ?? STATUS.paid;
   const active = statusKey === 'out' || statusKey === 'paid';
-  const itemsText = o.items?.map((i: any) => `${i.product_name || i.product?.name || 'Item'} (x${i.quantity})`).join(', ') || '1 item';
-  const storeSlug = o.store?.slug;
+  const itemsText = o.items?.map((i: any) => `${i.product_name || i.product?.name || i.name || 'Item'} (x${i.quantity})`).join(', ') || '1 item';
+  const storeSlug = o.store?.slug || o.store?.username;
 
   const second: { label: string; href?: Href } = active
     ? { label: 'Help' }
@@ -86,30 +86,38 @@ function OrderCard({ o }: { o: any }) {
 
 export default function BuyerOrders() {
   const [tab, setTab] = useState<Tab>('active');
-  const { data: liveOrders = [] } = useQuery({ queryKey: ['buyer-orders'], queryFn: getBuyerOrders });
+  const { data: liveOrders = [], isLoading, isRefetching, refetch } = useQuery({ queryKey: ['buyer-orders'], queryFn: getBuyerOrders });
 
   const activeOrders = liveOrders.filter((o: any) => {
     const status = o.order_status;
-    return status === 'paid' || status === 'shipped';
+    return status === 'paid' || status === 'shipped' || status === 'confirmed' || status === 'processing' || status === 'pending';
   });
 
   const pastOrders = liveOrders.filter((o: any) => {
     const status = o.order_status;
-    return status === 'delivered' || status === 'refunded';
+    return status === 'delivered' || status === 'completed' || status === 'refunded' || status === 'cancelled';
   });
 
   const list = tab === 'active' ? activeOrders : pastOrders;
 
   return (
     <Screen>
-      <ScrollView contentContainerClassName="gap-3.5 px-4 pb-6 pt-3">
+      <ScrollView
+        contentContainerClassName="gap-3.5 px-4 pb-6 pt-3"
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#0B6E4F" />}
+      >
         <T className="font-display-x text-[30px] tracking-[-0.6px]">My orders</T>
         <Segmented<Tab>
           value={tab}
           onChange={setTab}
           options={[{ key: 'active', label: `Active · ${activeOrders.length}` }, { key: 'past', label: `Past · ${pastOrders.length}` }]}
         />
-        {list.length > 0 ? (
+        {isLoading ? (
+          <View className="items-center py-12">
+            <ActivityIndicator size="small" color="#0B6E4F" />
+            <T className="mt-2 text-xs text-muted">Loading your orders...</T>
+          </View>
+        ) : list.length > 0 ? (
           list.map((o: any) => <OrderCard key={o.id} o={o} />)
         ) : (
           <View className="items-center py-10">

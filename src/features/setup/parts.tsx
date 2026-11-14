@@ -14,18 +14,30 @@ export function goBack(fallback: Href) {
 
 /** Back chevron + centred step label + optional right action (Skip / Later). */
 export function StepHeader({
-  fallback, label, right,
-}: { fallback: Href; label?: string; right?: { title: string; href?: Href; onPress?: () => void } }) {
+  fallback, label, right, hideBack, onBack,
+}: { fallback?: Href; label?: string; right?: { title: string; href?: Href; onPress?: () => void }; hideBack?: boolean; onBack?: () => void }) {
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+      return;
+    }
+    if (fallback) goBack(fallback);
+  };
+
   return (
     <View className="flex-row items-center justify-between px-3 pt-1">
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-        onPress={() => goBack(fallback)}
-        className="h-11 w-11 items-center justify-center"
-      >
-        <ChevronLeft size={22} color="#0E1A15" strokeWidth={2} />
-      </Pressable>
+      {!hideBack && (fallback || onBack) ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          onPress={handleBack}
+          className="h-11 w-11 items-center justify-center"
+        >
+          <ChevronLeft size={22} color="#0E1A15" strokeWidth={2} />
+        </Pressable>
+      ) : (
+        <View className="h-11 w-11" />
+      )}
       {label ? <T className="font-sans-bold text-[13px] text-muted">{label}</T> : null}
       {right ? (
         right.onPress ? (

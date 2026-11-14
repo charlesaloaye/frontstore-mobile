@@ -43,8 +43,8 @@ export default function ShareStore() {
   const store = me?.store;
   const storeName = store?.store_name || store?.name || 'My Store';
   const username = store?.username || store?.slug || 'mystore';
-  const domain = `frontstore.app/${username}`;
-  const url = `https://${domain}`;
+  const displayLink = `frontstore.app/${username}`;
+  const url = `https://${displayLink}`;
   const message = `Shop ${storeName} - now taking orders: ${url}`;
 
   const share = () => {
@@ -84,12 +84,12 @@ export default function ShareStore() {
             </View>
           </View>
           <View className="rounded-xl bg-bg px-3 py-2.5">
-            <T className="text-center font-sans-bold text-xs">{domain}</T>
+            <T className="text-center font-sans-bold text-xs">{displayLink}</T>
           </View>
         </View>
 
         <View className="h-[52px] flex-row items-center justify-between rounded-[14px] border border-line bg-surface pl-4 pr-1.5">
-          <T className="font-sans-semibold">{domain}</T>
+          <T className="font-sans-semibold">{displayLink}</T>
           <Pressable accessibilityRole="button" accessibilityLabel="Copy store link" onPress={copy} className="h-10 justify-center rounded-[10px] bg-ink px-3.5">
             <T className="font-sans-bold text-sm text-bg">{copied ? 'Copied' : 'Copy'}</T>
           </Pressable>

@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, BackHandler, Pressable, ScrollView, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { Button, Screen, T, cx } from '@/components/ui';
 import { BottomBar, Heading } from '@/features/setup/parts';
 import { setUserMode } from '@/api/authStore';
+import { completeBuyerSetup } from '@/api/auth';
+import { updateDraft, useDraft } from '@/features/setup/draft';
 
 type Mode = 'shop' | 'sell';
 
@@ -14,18 +16,49 @@ const OPTIONS: Array<{ id: Mode; title: string; body: string; color: string; ico
 ];
 
 export default function ChooseMode() {
-  const [mode, setMode] = useState<Mode>('sell');
-  const { setup_token } = useLocalSearchParams<{ setup_token?: string }>();
+  const params = useLocalSearchParams<{ setup_token?: string; initial_mode?: Mode }>();
+  const draft = useDraft();
+  const activeToken = params.setup_token || draft.setup_token;
+
+  const [mode, setMode] = useState<Mode>(params.initial_mode === 'shop' ? 'shop' : 'sell');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeToken) {
+      updateDraft({ setup_token: activeToken });
+    }
+  }, [activeToken]);
 
   const onContinue = async () => {
-    await setUserMode(mode === 'shop' ? 'buyer' : 'seller');
-    if (mode === 'shop') {
-      router.replace('/shop');
-    } else {
-      router.push({
-        pathname: '/store-name',
-        params: setup_token ? { setup_token } : undefined,
-      });
+    setLoading(true);
+    try {
+      await setUserMode(mode === 'shop' ? 'buyer' : 'seller');
+      if (mode === 'shop') {
+        if (activeToken) {
+          try {
+            await completeBuyerSetup({ setup_token: activeToken });
+          } catch (setupErr) {
+            console.warn('completeBuyerSetup warning:', setupErr);
+          }
+        }
+        router.replace({
+          pathname: '/shop',
+          params: {
+            from_onboarding: '1',
+            setup_token: activeToken || '',
+          },
+        });
+      } else {
+        if (activeToken) {
+          updateDraft({ setup_token: activeToken });
+        }
+        router.replace({
+          pathname: '/store-name',
+          params: activeToken ? { setup_token: activeToken } : undefined,
+        });
+      }
+    } finally {
+      setLoading(false);
     }
   };
 

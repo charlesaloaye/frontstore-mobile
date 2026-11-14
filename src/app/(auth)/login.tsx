@@ -4,16 +4,13 @@ import { Link, router } from 'expo-router';
 import { Mail } from 'lucide-react-native';
 import { Button, Screen, T } from '@/components/ui';
 import { BottomBar, Heading, Labelled, RingInput, StepHeader, WhatsAppIcon } from '@/features/setup/parts';
-import { loginWithPassword, sendEmailOtp, sendWhatsAppOtp, loginWithGoogle, loginWithApple } from '@/api/auth';
-import { GoogleIcon, AppleIcon } from '@/components/SocialIcons';
+import { loginWithPassword, sendEmailOtp, sendWhatsAppOtp } from '@/api/auth';
 
 export default function Login() {
   const [raw, setRaw] = useState('');
   const [pw, setPw] = useState(false);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [appleLoading, setAppleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const v = raw.trim();
@@ -49,56 +46,10 @@ export default function Login() {
     }
   };
 
-  const handleGoogleAuth = async () => {
-    const targetEmail = isEmail ? v : 'merchant@frontstore.ng';
-    setGoogleLoading(true);
-    setErrorMsg(null);
-    try {
-      const res = await loginWithGoogle({
-        email: targetEmail,
-        name: 'Frontstore Merchant',
-        google_id: `g_${Date.now()}`,
-      });
-
-      if (res.is_new_user) {
-        router.replace('/choose-mode');
-      } else {
-        router.replace('/home');
-      }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Google login failed. Please try again.');
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
-
-  const handleAppleAuth = async () => {
-    const targetEmail = isEmail ? v : `merchant_${Date.now()}@privaterelay.appleid.com`;
-    setAppleLoading(true);
-    setErrorMsg(null);
-    try {
-      const res = await loginWithApple({
-        email: targetEmail,
-        name: 'Apple Merchant',
-        apple_id: `apple_${Date.now()}`,
-      });
-
-      if (res.is_new_user) {
-        router.replace('/choose-mode');
-      } else {
-        router.replace('/home');
-      }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Apple login failed. Please try again.');
-    } finally {
-      setAppleLoading(false);
-    }
-  };
-
   return (
     <Screen>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
-        <StepHeader fallback="/welcome" />
+        <StepHeader fallback="/welcome" hideBack />
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="gap-[18px] px-5 pt-5 pb-6">
           <Heading title="Welcome back" sub="Log in with your email or WhatsApp number." />
           {errorMsg ? (
@@ -150,45 +101,6 @@ export default function Login() {
           <Pressable accessibilityRole="button" onPress={() => setPw(!pw)} className="h-11 justify-center self-start">
             <T className="font-sans-bold text-[15px] text-green">{pw ? 'Use a one-time code instead' : 'Log in with password'}</T>
           </Pressable>
-
-          <View className="flex-row items-center gap-3 pt-2">
-            <View className="h-px flex-1 bg-line-2" />
-            <T className="text-[13px] text-muted">or</T>
-            <View className="h-px flex-1 bg-line-2" />
-          </View>
-          <View className="gap-2.5">
-            <Pressable
-              accessibilityRole="button"
-              disabled={googleLoading || appleLoading}
-              onPress={handleGoogleAuth}
-              className="h-[54px] flex-row items-center justify-center gap-2.5 rounded-full border border-line-2 bg-surface active:opacity-80"
-            >
-              {googleLoading ? (
-                <ActivityIndicator color="#0E1A15" size="small" />
-              ) : (
-                <>
-                  <GoogleIcon size={20} />
-                  <T className="font-sans-semibold text-base text-ink">Continue with Google</T>
-                </>
-              )}
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              disabled={googleLoading || appleLoading}
-              onPress={handleAppleAuth}
-              className="h-[54px] flex-row items-center justify-center gap-2.5 rounded-full border border-line-2 bg-surface active:opacity-80"
-            >
-              {appleLoading ? (
-                <ActivityIndicator color="#0E1A15" size="small" />
-              ) : (
-                <>
-                  <AppleIcon size={20} color="#0E1A15" />
-                  <T className="font-sans-semibold text-base text-ink">Continue with Apple</T>
-                </>
-              )}
-            </Pressable>
-          </View>
         </ScrollView>
         <BottomBar>
           <Button

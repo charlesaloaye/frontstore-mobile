@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { ActivityIndicator, BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Check, ChevronDown, Globe, X } from 'lucide-react-native';
 import { Button, Screen, T } from '@/components/ui';
 import { BottomBar, Heading, Labelled, Progress, RingInput, StepHeader } from '@/features/setup/parts';
@@ -21,8 +21,29 @@ function getCountryFlag(code?: string): string {
 }
 
 export default function StoreName() {
-  const { name, country_code, country_name, currency_code } = useDraft();
+  const draft = useDraft();
+  const { name, country_code, country_name, currency_code } = draft;
   const { setup_token } = useLocalSearchParams<{ setup_token?: string }>();
+  const activeToken = setup_token || draft.setup_token;
+
+  const handleBack = () => {
+    router.replace({
+      pathname: '/choose-mode',
+      params: {
+        setup_token: activeToken || '',
+        initial_mode: 'sell',
+      },
+    });
+  };
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleBack();
+      return true;
+    });
+    return () => sub.remove();
+  }, [activeToken]);
+
   const [countries, setCountries] = useState<Country[]>([]);
   const [loadingCountries, setLoadingCountries] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -123,7 +144,7 @@ export default function StoreName() {
   return (
     <Screen>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
-        <StepHeader fallback="/choose-mode" label="Step 2 of 5" />
+        <StepHeader onBack={handleBack} fallback="/choose-mode" label="Step 2 of 5" />
         <Progress pct={40} />
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="gap-5 px-5 pt-7 pb-6">
           <Heading title="Name your store" sub="This is what customers see. You can change it later." />

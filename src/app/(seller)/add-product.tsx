@@ -1,16 +1,16 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronDown, Lock } from 'lucide-react-native';
+import { Camera, ChevronDown, Lock } from 'lucide-react-native';
 import { Screen, T, cx } from '@/components/ui';
 import { Sparkle, goBack } from '@/features/seller/parts';
 import { createProduct } from '@/api/products';
+import { usePhotoDraft } from '@/features/products/usePhotoDraft';
+import { ColourChips } from '@/features/products/ColourChips';
 import { formatNaira } from '@/lib/format';
-import { usePhotoDraft, parseNaira } from '@/features/products/usePhotoDraft';
-import { ColourEditor, PhotoPicker, ReadingCard } from '@/features/products/PhotoDraftParts';
 import { SearchableSelectModal } from '@/components/SearchableSelectModal';
-import { STORE_CATEGORIES } from '@/data/categories';
+import { useCategories } from '@/features/products/useCategories';
 
 const ghost = ['Product name', 'Price', 'Category', 'Description'];
 
@@ -41,48 +41,51 @@ function DashedChip({ label, className, onPress }: { label: string; className?: 
 
 export default function AddProduct() {
   const insets = useSafeAreaInsets();
-  // Fields start empty: they're filled by the AI from the seller's own photos, or typed in.
+
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('');
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [desc, setDesc] = useState('');
   const [colors, setColors] = useState<string[]>([]);
-  const [stock, setStock] = useState('10');
-  const [priceRange, setPriceRange] = useState<[number, number] | null>(null);
+  const [sizes, setSizes] = useState<string[]>([]);
+  const [stock, setStock] = useState('');
 
+  const categories = useCategories();
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const draft = usePhotoDraft({
-    onResult: (r) => {
-      if (r.name) setName(r.name);
-      if (r.priceNaira) setPrice(r.priceNaira);
-      if (r.category) setCategory(r.category);
-      if (r.description) setDesc(r.description);
-      if (r.colours?.length) setColors(r.colours);
-      setPriceRange(r.priceRange ?? null);
-    },
+  const photoDraft = usePhotoDraft((d) => {
+    if (d.title) setName(d.title);
+    if (d.suggested_price_kobo) setPrice(String(Math.round(d.suggested_price_kobo / 100)));
+    if (d.category_id) setCategory(d.category_id);
+    if (d.description) setDesc(d.description);
+    if (d.colors?.length) setColors(d.colors);
   });
+  const { stage, pick: pickImages } = photoDraft;
+  const photos = photoDraft.photos.map((p) => p.uri);
 
   const onPublish = async () => {
-    if (!filled || submitting) return;
-    const amount = parseNaira(price);
-    if (!name.trim()) return setErrorMsg('Add a product name.');
-    if (!amount) return setErrorMsg('Add a price.');
+    if (stage !== 'filled' || submitting) return;
     setSubmitting(true);
     setErrorMsg(null);
     try {
+      const numericPriceKobo = Math.round(parseFloat(price.replace(/,/g, '')) * 100);
+      if (!name.trim() || !numericPriceKobo) {
+        setErrorMsg('Add a name and price first.');
+        return;
+      }
       await createProduct({
-        name: name.trim(),
-        price_kobo: Math.round(amount * 100),
-        category: category || undefined,
+        name,
+        price_kobo: numericPriceKobo,
+        category_id: category || null,
         description: desc,
-        stock_count: parseInt(stock, 10) || 0,
+        stock_count: parseInt(stock, 10) || 1,
         status: 'live',
-        images: draft.imageUrls,
-        ...(colors.length ? { colors } : {}),
-      } as any);
+        images: photoDraft.imageUrls,
+        sizes,
+        colors,
+      });
       router.dismissTo('/products');
     } catch (err: any) {
       setErrorMsg(err.message || 'Could not publish product. Please try again.');
@@ -91,8 +94,8 @@ export default function AddProduct() {
     }
   };
 
-  const filled = draft.formOpen;
-  const reading = draft.busy;
+  const filled = stage === 'filled';
+  const reading = stage === 'reading';
 
   return (
     <Screen>
@@ -109,21 +112,62 @@ export default function AddProduct() {
           <T className="flex-1 text-sm text-muted-2">Start with a photo. AI does the typing.</T>
         </View>
 
+        {photoDraft.error && !filled ? <T className="text-sm text-danger">{photoDraft.error}</T> : null}
+
         {errorMsg ? (
           <View className="rounded-xl bg-red-100 p-3.5 border border-red-200">
             <T className="text-sm font-sans-medium text-red-800">{errorMsg}</T>
           </View>
         ) : null}
 
-        <PhotoPicker photos={draft.photos} busy={draft.busy} onPick={draft.pick} onRemove={draft.removePhoto} />
-        {draft.message ? <T className="text-[13px] text-danger">{draft.message}</T> : null}
-        {draft.status === 'idle' && draft.photos.length === 0 ? (
-          <Pressable accessibilityRole="button" onPress={draft.skip} className="self-center py-1">
-            <T className="font-sans-semibold text-sm text-green">No photo yet? Fill it in yourself</T>
+        {stage === 'empty' ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={pickImages}
+            className="h-[210px] items-center justify-center gap-2.5 rounded-[22px] border-2 border-dashed border-[#B9B1A0] bg-surface"
+          >
+            <View className="h-14 w-14 items-center justify-center rounded-full bg-mint">
+              <Camera size={26} color="#0B6E4F" strokeWidth={2} />
+            </View>
+            <T className="font-sans-bold text-base text-[#33403A]">Take a photo or choose from gallery</T>
+            <T className="text-[13px] text-muted">Up to 3 photos · Nina AI fills in the rest</T>
           </Pressable>
-        ) : null}
+        ) : (
+          <View className="flex-row gap-2">
+            {photos.map((uri, idx) => (
+              <View key={idx} className="h-[92px] w-[92px] overflow-hidden rounded-2xl bg-saffron">
+                <Image source={{ uri }} className="h-full w-full" resizeMode="cover" />
+                {idx === 0 ? (
+                  <View className="absolute bottom-1.5 left-1.5 rounded-full bg-surface px-[7px] py-0.5">
+                    <T className="font-sans-bold text-[10px]">Cover</T>
+                  </View>
+                ) : null}
+              </View>
+            ))}
+            {photos.length < 3 ? (
+              <Pressable accessibilityRole="button" onPress={pickImages} className="h-[92px] flex-1 items-center justify-center rounded-2xl border-[1.5px] border-dashed border-[#B9B1A0] bg-surface">
+                <T className="text-[22px] text-muted">+</T>
+              </Pressable>
+            ) : null}
+          </View>
+        )}
 
-        {reading ? <ReadingCard status={draft.status} onSkip={draft.skip} /> : null}
+        {reading ? (
+          <View accessibilityLiveRegion="polite" className="gap-2.5 rounded-[20px] bg-ink p-4">
+            <View className="flex-row items-center gap-2">
+              <Sparkle size={16} color="#6FD3A4" />
+              <T className="font-sans-bold text-[15px] text-bg">Nina AI is reading your photos…</T>
+            </View>
+            <View className="h-1.5 overflow-hidden rounded-full bg-[#33504A]">
+              <View className="h-1.5 w-[64%] rounded-full bg-leaf" />
+            </View>
+            <T className="text-sm text-on-dark">Looking at the item, brand and colour</T>
+            <T className="text-sm text-on-dark-2">… Checking prices in Nigeria</T>
+            <Pressable accessibilityRole="button" onPress={photoDraft.skip} className="h-[38px] justify-center self-start rounded-full border border-[rgba(246,243,236,0.3)] px-3.5">
+              <T className="font-sans-semibold text-[13px] text-bg">Skip - fill in myself</T>
+            </Pressable>
+          </View>
+        ) : null}
 
         {!filled ? (
           <View className="gap-2.5">
@@ -135,26 +179,24 @@ export default function AddProduct() {
             ))}
             <View className="flex-row items-center justify-center gap-2">
               <Lock size={15} color="#0B6E4F" strokeWidth={2} />
-              <T className="font-sans-semibold text-sm text-muted">{reading ? 'Filling in from your photos…' : 'Add a photo to start'}</T>
+              <T className="font-sans-semibold text-sm text-muted">{reading ? 'Filling in from your photos…' : 'Add a photo to unlock the form'}</T>
             </View>
           </View>
         ) : (
           <View className="gap-3.5">
-            {draft.status === 'done' ? (
-              <View className="flex-row items-center justify-between gap-2 rounded-[14px] bg-mint px-3 py-2.5">
-                <View className="flex-1 flex-row items-center gap-2">
-                  <Sparkle size={15} />
-                  <T className="font-sans-semibold text-[13px] text-deep">Filled in by Nina AI. Check it.</T>
-                </View>
-                <Pressable accessibilityRole="button" onPress={draft.analyse} hitSlop={6} className="h-8 justify-center rounded-full border border-[#9CC7B2] bg-surface px-3">
-                  <T className="font-sans-bold text-xs text-green">Read again</T>
-                </Pressable>
+            <View className="flex-row items-center justify-between gap-2 rounded-[14px] bg-mint px-3 py-2.5">
+              <View className="flex-1 flex-row items-center gap-2">
+                <Sparkle size={15} />
+                <T className="flex-1 font-sans-semibold text-[13px] text-deep">{photoDraft.error ?? (name ? 'Filled in by Nina AI. Check it.' : 'Fill in the details.')}</T>
               </View>
-            ) : null}
+              <Pressable accessibilityRole="button" onPress={photoDraft.reread} hitSlop={6} className="h-8 justify-center rounded-full border border-[#9CC7B2] bg-surface px-3">
+                <T className="font-sans-bold text-xs text-green">Read again</T>
+              </Pressable>
+            </View>
 
             <View className="gap-1.5">
               <Label text="Product name" />
-              <TextInput value={name} onChangeText={setName} placeholder="e.g. Ankara wrap dress" placeholderTextColor="#8A928E" accessibilityLabel="Product name" className="h-[50px] rounded-[14px] border border-line-2 bg-surface px-3.5 font-sans text-base text-ink" />
+              <TextInput value={name} onChangeText={setName} accessibilityLabel="Product name" className="h-[50px] rounded-[14px] border border-line-2 bg-surface px-3.5 font-sans text-base text-ink" />
             </View>
 
             <View className="flex-row gap-2.5">
@@ -169,16 +211,15 @@ export default function AddProduct() {
                 <Label text="Category" />
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Category, ${category}`}
+                  accessibilityLabel={`Category, ${categories.nameOf(category) || 'not set'}`}
                   onPress={() => setCategoryModalOpen(true)}
                   className="h-[50px] flex-row items-center justify-between rounded-[14px] border border-line-2 bg-surface px-3"
                 >
-                  <T className="text-[15px]" numberOfLines={1}>{category || 'Select'}</T>
+                  <T className="text-[15px]" numberOfLines={1}>{categories.nameOf(category) || 'Select'}</T>
                   <ChevronDown size={16} color="#5B6660" strokeWidth={2} />
                 </Pressable>
               </View>
             </View>
-            {priceRange ? <T className="-mt-1.5 text-xs text-muted">Nina's price range for this item: {formatNaira(priceRange[0])} – {formatNaira(priceRange[1])}</T> : null}
 
             <View className="gap-1.5">
               <Label text="Description" />
@@ -195,7 +236,7 @@ export default function AddProduct() {
 
             <View className="gap-2">
               <Label text="Colour" />
-              <ColourEditor colours={colors} onChange={setColors} />
+              <ColourChips value={colors} onChange={setColors} />
             </View>
 
             <View className="gap-2.5 rounded-2xl bg-peach p-3.5">
@@ -212,12 +253,7 @@ export default function AddProduct() {
         title="Select Category"
         subtitle="Choose category for this product"
         placeholder="Search category..."
-        items={STORE_CATEGORIES.map((cat) => ({
-          id: cat.id,
-          title: cat.name,
-          subtitle: cat.description,
-          badge: cat.id,
-        }))}
+        items={categories.items}
         selectedId={category}
         onSelect={(item) => setCategory(item.id)}
       />
@@ -228,7 +264,7 @@ export default function AddProduct() {
           accessibilityState={{ disabled: !filled || submitting }}
           disabled={!filled || submitting}
           onPress={onPublish}
-          className={cx('h-[54px] flex-row items-center justify-center gap-2 rounded-full', filled ? 'bg-green' : 'bg-[#BFD3C8]')}
+          className={cx('h-[54px] flex-row items-center justify-center gap-2 rounded-full', filled ? 'bg-deep' : 'bg-[#BFD3C8]')}
         >
           {submitting ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
           <T className="font-sans-bold text-[17px] text-white">{submitting ? 'Publishing...' : 'Save and publish'}</T>

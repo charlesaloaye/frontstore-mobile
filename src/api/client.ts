@@ -2,13 +2,11 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { getToken, removeToken } from './authStore';
 import { router } from 'expo-router';
 
-// API base URL: EXPO_PUBLIC_API_BASE_URL / EXPO_PUBLIC_API_URL when set; otherwise the
-// local Laravel server in development and the live API in store builds. (Falling back
-// to localhost in a release build left the shipped app unable to reach the server.)
+// Default API Base URL. Uses process.env.EXPO_PUBLIC_API_BASE_URL or process.env.EXPO_PUBLIC_API_URL or defaults to production FrontStore API.
 export const API_BASE_URL = (
   process.env.EXPO_PUBLIC_API_BASE_URL ||
   process.env.EXPO_PUBLIC_API_URL ||
-  (__DEV__ ? 'http://localhost:8000/api/v1' : 'https://frontstore.app/api/v1')
+  'https://frontstore.app/api/v1'
 ).replace(/\/+$/, '');
 
 export const apiClient = axios.create({
@@ -44,10 +42,15 @@ apiClient.interceptors.response.use(
         url.includes('/auth/login') ||
         url.includes('/auth/signup') ||
         url.includes('/auth/verify') ||
+        url.includes('/auth/me') ||
         url.includes('/meta/') ||
-        url.includes('/public/');
+        url.includes('/public/') ||
+        url.includes('/buyer/');
 
-      const shouldSkip = (error.config as any)?.skipAuthRedirect || isPublicOrVerification;
+      // A request sent without a login (e.g. mid sign-up, before the account
+      // exists) failing with 401 is not a "session expired": don't log out.
+      const sentToken = !!(error.config?.headers as any)?.Authorization;
+      const shouldSkip = (error.config as any)?.skipAuthRedirect || isPublicOrVerification || !sentToken;
 
       if (!shouldSkip) {
         await removeToken();
@@ -76,9 +79,9 @@ export class ApiError extends Error {
 }
 
 /** Wrapper helper methods matching expected API call patterns */
-export async function apiGet<T = any>(url: string, params?: Record<string, any>): Promise<T> {
+export async function apiGet<T = any>(url: string, params?: Record<string, any>, config?: any): Promise<T> {
   try {
-    const res = await apiClient.get(url, { params });
+    const res = await apiClient.get(url, { params, ...config });
     const json = res.data;
     if (json?.status === 'error') {
       throw new ApiError(json.message || 'Request failed', res.status, json);
@@ -136,9 +139,9 @@ export async function apiPatch<T = any>(url: string, body?: any): Promise<T> {
   }
 }
 
-export async function apiDelete<T = any>(url: string): Promise<T> {
+export async function apiDelete<T = any>(url: string, body?: any): Promise<T> {
   try {
-    const res = await apiClient.delete(url);
+    const res = await apiClient.delete(url, body ? { data: body } : undefined);
     const json = res.data;
     if (json?.status === 'error') {
       throw new ApiError(json.message || 'Request failed', res.status, json);

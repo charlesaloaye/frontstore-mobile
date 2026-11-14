@@ -1,6 +1,7 @@
 import { apiGet, apiPost } from './client';
-import { setToken, removeToken, setUserMode } from './authStore';
+import { getToken, setToken, removeToken, setUserMode } from './authStore';
 import { User, Store } from './types';
+import { registerForPush, unregisterPush } from '@/lib/push';
 
 export interface AuthResponse {
   token?: string;
@@ -32,6 +33,21 @@ export async function verifyOtp(params: {
 
   if (data.token) {
     await setToken(data.token);
+    registerForPush();
+  }
+  return data;
+}
+
+/** Complete setup for a buyer / shopper */
+export async function completeBuyerSetup(params: {
+  setup_token: string;
+  name?: string;
+}): Promise<AuthResponse> {
+  const data: AuthResponse = await apiPost('/auth/complete-buyer-setup', params);
+  if (data.token) {
+    await setToken(data.token);
+    await setUserMode('buyer');
+    registerForPush();
   }
   return data;
 }
@@ -45,6 +61,7 @@ export async function loginWithPassword(loginIdentifier: string, password: strin
 
   if (data.token) {
     await setToken(data.token);
+    registerForPush();
   }
   return data;
 }
@@ -60,6 +77,7 @@ export async function loginWithGoogle(params: {
   const data: AuthResponse = await apiPost('/auth/google', params);
   if (data.token) {
     await setToken(data.token);
+    registerForPush();
   }
   return data;
 }
@@ -74,22 +92,55 @@ export async function loginWithApple(params: {
   const data: AuthResponse = await apiPost('/auth/apple', params);
   if (data.token) {
     await setToken(data.token);
+    registerForPush();
   }
   return data;
 }
 
 /** Fetch authenticated user profile */
-export async function getMe(): Promise<{ user: User; store: Store | null }> {
-  return apiGet<{ user: User; store: Store | null }>('/auth/me');
+export async function getMe(): Promise<{ user: User; store: Store | null } | null> {
+  const token = await getToken();
+  if (!token) return null;
+  try {
+    return await apiGet<{ user: User; store: Store | null }>('/auth/me', undefined, { skipAuthRedirect: true });
+  } catch {
+    return null;
+  }
 }
 
 /** Logout user */
 export async function logout(): Promise<void> {
   try {
+    await unregisterPush();
     await apiPost('/auth/logout');
   } catch (err) {
     console.warn('Logout endpoint error', err);
   } finally {
     await removeToken();
   }
+}
+
+export interface DeleteAccountPreview {
+  can_delete: boolean;
+  blockers: string[];
+  /** Paid orders are kept as records; the store is hidden and personal details wiped. */
+  keeps_orders: boolean;
+  paid_orders: number;
+  stores: { id: string; name: string; username: string }[];
+}
+
+/** What deleting this account would do, and anything to settle first */
+export async function getDeleteAccountPreview(): Promise<DeleteAccountPreview> {
+  return apiGet<DeleteAccountPreview>('/user/delete-account');
+}
+
+/** Permanently delete this account, then sign out locally */
+export async function deleteAccount(): Promise<void> {
+  await apiPost('/user/delete-account', { confirm: 'DELETE' });
+  await removeToken();
+}
+
+/** Everything Frontstore holds about this account, as JSON */
+export async function exportMyData(): Promise<Record<string, unknown>> {
+  return apiPost('/user/export-data');
 }

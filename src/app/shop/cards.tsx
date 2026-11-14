@@ -115,7 +115,7 @@ export default function BuyerCards() {
           </View>
         ) : null}
         {tokenizing ? (
-          <View className="h-[54px] items-center justify-center rounded-full bg-green">
+          <View className="h-[54px] items-center justify-center rounded-full bg-deep">
             <ActivityIndicator color="#fff" />
           </View>
         ) : (

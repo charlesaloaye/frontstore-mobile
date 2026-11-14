@@ -48,7 +48,7 @@ export function CodeEntry({ flow, channel: initialChannel, to }: { flow: Flow; c
   const phone = channel === 'whatsapp';
   const targetIdentifier = to || '';
   const dest = phone ? (targetIdentifier.includes('@') ? targetIdentifier : maskPhone(targetIdentifier)) : targetIdentifier;
-  const alt = phone ? 'Send the code to my email instead' : signup ? 'Wrong email? Change it' : 'Send the code on WhatsApp instead';
+  const alt = phone ? 'Wrong phone number? Change it' : 'Wrong email? Change it';
 
   const onResend = async () => {
     setLeft(RESEND_SECONDS);
@@ -66,11 +66,7 @@ export function CodeEntry({ flow, channel: initialChannel, to }: { flow: Flow; c
   };
 
   const onAlt = () => {
-    if (signup && !phone) return goBack(fallback);
-    setChannel(phone ? 'email' : 'whatsapp');
-    setCode('');
-    setLeft(RESEND_SECONDS);
-    setErrorMsg(null);
+    goBack(fallback);
   };
 
   const verify = async () => {
@@ -85,14 +81,19 @@ export function CodeEntry({ flow, channel: initialChannel, to }: { flow: Flow; c
       });
 
       if (res.is_new_user && res.setup_token) {
-        // New user setup token
+        // New user setup token -> choose whether to shop or sell
         router.replace({
           pathname: '/choose-mode',
           params: { setup_token: res.setup_token },
         });
       } else {
-        // Logged in user
-        router.replace(signup ? '/choose-mode' : '/home');
+        // Existing user who already has an account
+        const store = res.store || (res as any).data?.store;
+        if (store) {
+          router.replace('/home');
+        } else {
+          router.replace('/shop');
+        }
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Invalid verification code. Please check and try again.');

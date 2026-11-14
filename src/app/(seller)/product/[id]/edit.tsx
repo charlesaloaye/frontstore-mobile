@@ -9,7 +9,8 @@ import { Toggle, goBack } from '@/features/seller/parts';
 import { getProduct, updateProduct } from '@/api/products';
 import { formatNaira } from '@/lib/format';
 import { SearchableSelectModal } from '@/components/SearchableSelectModal';
-import { STORE_CATEGORIES } from '@/data/categories';
+import { useCategories } from '@/features/products/useCategories';
+import { ColourChips } from '@/features/products/ColourChips';
 
 const ALL_SIZES = ['S', 'M', 'L', 'XL'];
 
@@ -26,10 +27,13 @@ export default function EditProduct() {
 
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
-  const [category, setCategory] = useState('Fashion');
+  const categories = useCategories();
+  const [category, setCategory] = useState('');
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
-  const [sizes, setSizes] = useState<string[]>(ALL_SIZES);
+  const [sizes, setSizes] = useState<string[]>([]);
+  const [colors, setColors] = useState<string[]>([]);
   const [inStock, setInStock] = useState(true);
+  const [stock, setStock] = useState('');
   const [visible, setVisible] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -38,17 +42,19 @@ export default function EditProduct() {
     if (product) {
       setName(product.name);
       setPrice(String(Math.round(product.price_kobo / 100)));
-      setCategory(product.category || 'Two-piece');
+      setCategory(product.category_id ?? '');
       setInStock(product.stock_count > 0);
+      setStock(product.stock_count > 0 ? String(product.stock_count) : '');
       setVisible(product.status !== 'hidden');
       if (product.sizes) setSizes(product.sizes);
+      if (product.colors) setColors(product.colors);
     }
   }, [product]);
 
   const toggleSize = (s: string) => setSizes((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]));
 
   const saveMutation = useMutation({
-    mutationFn: (payload: any) => updateProduct(id!, payload),
+    mutationFn: (payload: any) => updateProduct(id!, payload, product?.variants),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['product', id] });
@@ -62,19 +68,22 @@ export default function EditProduct() {
 
   const save = () => {
     if (submitting) return;
-    const amount = Number(price.replace(/[^\d.]/g, ''));
-    if (!name.trim()) return setErrorMsg('Add a product name.');
-    if (!Number.isFinite(amount) || amount <= 0) return setErrorMsg('Add a price.');
+    const numericPriceKobo = Math.round(parseFloat(price.replace(/,/g, '')) * 100);
+    if (!name.trim() || !numericPriceKobo) {
+      setErrorMsg('Add a name and price first.');
+      return;
+    }
     setSubmitting(true);
     setErrorMsg(null);
-    const numericPriceKobo = Math.round(amount * 100);
     saveMutation.mutate({
       name,
       price_kobo: numericPriceKobo,
-      category,
-      stock_count: inStock ? 10 : 0,
+      category_id: category || null,
+      // The exact count the seller typed; switching "In stock" off sets it to 0.
+      stock_count: !inStock ? 0 : Math.max(1, parseInt(stock, 10) || 1),
       status: visible ? 'live' : 'hidden',
       sizes,
+      colors,
     });
   };
 
@@ -127,11 +136,11 @@ export default function EditProduct() {
             <T className="font-sans-bold text-sm">Collection</T>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Collection, ${category}`}
+              accessibilityLabel={`Collection, ${categories.nameOf(category) || 'not set'}`}
               onPress={() => setCategoryModalOpen(true)}
               className="h-[50px] flex-row items-center justify-between rounded-[14px] border border-line-2 bg-surface px-3"
             >
-              <T className="text-[15px]" numberOfLines={1}>{category}</T>
+              <T className="text-[15px]" numberOfLines={1}>{categories.nameOf(category) || 'Select'}</T>
               <ChevronDown size={16} color="#5B6660" strokeWidth={2} />
             </Pressable>
           </View>
@@ -143,12 +152,7 @@ export default function EditProduct() {
           title="Select Collection"
           subtitle="Choose collection for this product"
           placeholder="Search collections..."
-          items={STORE_CATEGORIES.map((cat) => ({
-            id: cat.id,
-            title: cat.name,
-            subtitle: cat.description,
-            badge: cat.id,
-          }))}
+          items={categories.items}
           selectedId={category}
           onSelect={(item) => setCategory(item.id)}
         />
@@ -174,11 +178,30 @@ export default function EditProduct() {
           </View>
         </View>
 
+        <View className="gap-2">
+          <T className="font-sans-bold text-sm">Colours</T>
+          <ColourChips value={colors} onChange={setColors} />
+        </View>
+
         <View className="rounded-[18px] border border-line bg-surface">
           <View className="flex-row items-center justify-between px-4 py-3.5">
             <T className="font-sans-semibold text-[15px]">In stock</T>
-            <Toggle label="In stock" value={inStock} onChange={setInStock} />
+            <Toggle label="In stock" value={inStock} onChange={(v) => { setInStock(v); if (v && !stock) setStock('1'); }} />
           </View>
+          {inStock ? (
+            <View className="flex-row items-center justify-between border-t border-line px-4 py-2.5">
+              <T className="font-sans-semibold text-[15px]">How many</T>
+              <TextInput
+                value={stock}
+                onChangeText={(v) => setStock(v.replace(/\D/g, '').slice(0, 5))}
+                keyboardType="number-pad"
+                placeholder="1"
+                placeholderTextColor="#8A928E"
+                accessibilityLabel="How many in stock"
+                className="h-10 w-24 rounded-xl border border-line-2 bg-surface px-3 text-right font-sans-semibold text-base text-ink"
+              />
+            </View>
+          ) : null}
           <View className="flex-row items-center justify-between border-t border-line px-4 py-3.5">
             <T className="font-sans-semibold text-[15px]">Show on storefront</T>
             <Toggle label="Show on storefront" value={visible} onChange={setVisible} />
@@ -195,7 +218,7 @@ export default function EditProduct() {
         >
           <Trash2 size={22} color="#A8321E" strokeWidth={2} />
         </Pressable>
-        <Pressable accessibilityRole="button" onPress={save} disabled={submitting} className="h-[54px] flex-1 flex-row items-center justify-center gap-2 rounded-full bg-green">
+        <Pressable accessibilityRole="button" onPress={save} disabled={submitting} className="h-[54px] flex-1 flex-row items-center justify-center gap-2 rounded-full bg-deep">
           {submitting ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
           <T className="font-sans-bold text-[17px] text-white">{submitting ? 'Saving...' : 'Save changes'}</T>
         </Pressable>

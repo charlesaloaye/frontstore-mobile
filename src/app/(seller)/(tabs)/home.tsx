@@ -139,7 +139,7 @@ export default function Home() {
           accessibilityRole="button"
           accessibilityLabel="Open Nina AI Agent settings"
           onPress={() => setNinaOpen(true)}
-          className="flex-row items-center justify-between rounded-[20px] border border-teal/30 bg-[#0A192F] p-4"
+          className="flex-row items-center justify-between rounded-[20px] border border-teal/30 bg-deep p-4"
         >
           <View className="flex-1 gap-1">
             <View className="flex-row items-center gap-2">

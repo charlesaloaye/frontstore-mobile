@@ -15,7 +15,7 @@ export function makeTabBar(items: Item[], centerHref?: string) {
     const nodes = items.map((it) => {
       const index = state.routes.findIndex((r: any) => r.name === it.name);
       const active = state.index === index;
-      const color = active ? '#128C7E' : '#5B6660';
+      const color = active ? '#07261C' : '#5B6660';
       return (
         <Pressable
           key={it.name}
@@ -33,7 +33,7 @@ export function makeTabBar(items: Item[], centerHref?: string) {
       nodes.splice(
         Math.floor(nodes.length / 2),
         0,
-        <Pressable key="add" accessibilityLabel="Add product" onPress={() => router.push(centerHref as never)} className="h-[52px] w-[52px] items-center justify-center rounded-[18px] bg-ink">
+        <Pressable key="add" accessibilityLabel="Add product" onPress={() => router.push(centerHref as never)} className="h-[52px] w-[52px] items-center justify-center rounded-[18px] bg-deep">
           <Plus size={24} color="#F6F3EC" strokeWidth={2.4} />
         </Pressable>,
       );

@@ -1,0 +1,37 @@
+name: Publish OTA update
+
+# Sends the current code to phones as an over-the-air update.
+# Needs the repository secret EXPO_TOKEN (expo.dev → Account settings → Access tokens).
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: What changed (shown in the Expo dashboard)
+        required: true
+        default: Bug fixes
+      channel:
+        description: Channel
+        required: true
+        default: production
+        type: choice
+        options: [production, preview]
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: eas update --channel "${{ inputs.channel }}" --message "${{ inputs.message }}" --non-interactive
+        env:
+          EXPO_PUBLIC_API_BASE_URL: https://frontstore.app/api/v1
+          EXPO_PUBLIC_API_URL: https://frontstore.app/api/v1

@@ -1,9 +1,9 @@
 {
   "expo": {
     "name": "FrontStore",
-    "slug": "frontstore-mobile",
+    "slug": "front-store",
     "newArchEnabled": true,
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -11,12 +11,12 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#128C7E"
+      "backgroundColor": "#07261C"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "ng.frontstore.mobile",
-      "buildNumber": "1",
+      "buildNumber": "3",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Allow FrontStore to access your photos to add product images.",
         "NSPhotoLibraryAddUsageDescription": "Allow FrontStore to save QR codes and images to your photo library.",
@@ -27,15 +27,18 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#128C7E"
+        "backgroundColor": "#07261C"
       },
       "package": "app.frontstore.mobile",
-      "versionCode": 7,
+      "versionCode": 11,
       "permissions": [
+        "android.permission.INTERNET",
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.READ_MEDIA_IMAGES"
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_MEDIA_LOCATION"
       ]
     },
     "web": {
@@ -62,6 +65,7 @@
         }
       ],
       "expo-video",
+      "expo-notifications",
       [
         "expo-build-properties",
         {
@@ -81,15 +85,15 @@
         "origin": false
       },
       "eas": {
-        "projectId": "1f907163-c09b-41b4-86b3-51b2014700ad"
+        "projectId": "0eb8a437-3228-410d-8012-65751488977e"
       }
     },
-    "owner": "charlestechy0",
+    "owner": "built-different-team",
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/1f907163-c09b-41b4-86b3-51b2014700ad"
+      "url": "https://u.expo.dev/0eb8a437-3228-410d-8012-65751488977e"
     }
   }
 }

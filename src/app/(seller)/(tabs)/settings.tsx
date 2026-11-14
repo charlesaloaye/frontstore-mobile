@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Linking, Pressable, ScrollView, View } from 'react-native';
+import { Image, Linking, Pressable, ScrollView, View } from 'react-native';
 import { router, type Href } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Truck, X } from 'lucide-react-native';
 import { Button, Screen, T, cx } from '@/components/ui';
 import { BottomSheet, SheetField } from '@/features/buyer/account';
-import { PrivacyRows } from '@/features/account/PrivacyRows';
+import { PrivacyActions } from '@/features/account/PrivacyActions';
+import { StoreSwitcher } from '@/features/seller/StoreSwitcher';
 import { naira } from '@/lib/format';
 import { getMe } from '@/api/auth';
 import { getStore } from '@/api/store';
@@ -98,7 +99,7 @@ export default function Settings() {
   const storeRows: Row[] = [
     { label: 'Payouts', value: wallet ? naira(wallet.balance) : undefined, href: '/payouts' },
     { label: 'Delivery fee', value: savedFee ? naira(Number(savedFee)) : 'Not set', onPress: () => setDeliveryOpen(true) },
-    { label: 'Store look', href: '/store-style' },
+    { label: 'Store details and look', href: '/store-edit' },
     { label: 'Share store and QR code', href: '/share' },
   ];
   const accountRows: Row[] = [
@@ -113,17 +114,23 @@ export default function Settings() {
         <T className="font-display text-[32px] tracking-[-0.6px]">Store</T>
 
         <View className="flex-row items-center gap-3.5 rounded-[22px] border border-line bg-surface p-4">
-          <View style={{ backgroundColor: storeColor }} className="h-14 w-14 items-center justify-center rounded-2xl">
-            <T className="font-display text-[22px] text-white">{storeName[0] || 'S'}</T>
+          <View style={{ backgroundColor: storeColor }} className="h-14 w-14 items-center justify-center overflow-hidden rounded-2xl">
+            {s.logo_url ? (
+              <Image source={{ uri: s.logo_url }} className="h-full w-full" resizeMode="cover" />
+            ) : (
+              <T className="font-display text-[22px] text-white">{storeName[0] || 'S'}</T>
+            )}
           </View>
           <View className="flex-1 gap-0.5">
             <T className="font-sans-bold text-[17px]">{storeName}</T>
             {storeSlug ? <T className="text-[13px] text-muted">frontstore.app/{storeSlug}</T> : null}
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Edit store" hitSlop={4} onPress={() => router.push('/store-style')} className="h-10 justify-center rounded-full border border-line-2 px-3.5">
+          <Pressable accessibilityRole="button" accessibilityLabel="Edit store" hitSlop={4} onPress={() => router.push('/store-edit')} className="h-10 justify-center rounded-full border border-line-2 px-3.5">
             <T className="font-sans-bold text-[13px]">Edit</T>
           </Pressable>
         </View>
+
+        <StoreSwitcher />
 
         <View className="gap-0.5 rounded-[22px] bg-deep p-4">
           <T className="font-sans-bold text-bg">{plan} plan</T>
@@ -138,7 +145,7 @@ export default function Settings() {
 
         <T className="font-sans-bold text-xs uppercase tracking-wider text-muted">Privacy</T>
         <View className="overflow-hidden rounded-[22px] border border-line bg-surface">
-          <PrivacyRows kind="seller" />
+          <PrivacyActions />
         </View>
 
         <View className="rounded-[22px] border border-line bg-surface">

@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, Share as ShareIcon, Star, X } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
 import { Button, Screen, T, cx } from '@/components/ui';
 import { naira } from '@/lib/format';
 import { Avatar, ChipRow, useTileWidth } from '@/features/buyer/parts';
@@ -77,21 +78,22 @@ export default function BuyerStore() {
       const whatsappUrl = res?.whatsapp_url || res?.data?.whatsapp_url;
       const orderId = orderData?.order_number || orderData?.id || 'FS-CONFIRMED';
 
-      setOrderSuccess({ orderId, whatsappUrl });
-      setCart({});
-      queryClient.invalidateQueries({ queryKey: ['buyer-orders'] });
-
-      if (paymentMethod === 'card' && orderData?.id) {
+      // The backend decides how each store is paid (usually a dedicated
+      // bank account, confirmed automatically); show that to the buyer.
+      let payment: Awaited<ReturnType<typeof initOrderPayment>> | null = null;
+      let paymentError: string | null = null;
+      if (orderData?.id) {
         try {
-          const payRes = await initOrderPayment(orderData.id);
-          const authUrl = payRes?.authorization_url || payRes?.data?.authorization_url;
-          if (authUrl) {
-            Linking.openURL(authUrl).catch(() => {});
-          }
-        } catch (e) {
-          console.warn('Paystack mobile init error', e);
+          payment = await initOrderPayment(orderData.id);
+          if (payment?.authorization_url) Linking.openURL(payment.authorization_url).catch(() => {});
+        } catch (e: any) {
+          paymentError = e.message || 'Could not load payment details. Contact the seller on WhatsApp.';
         }
       }
+
+      setOrderSuccess({ orderId, whatsappUrl, payment, paymentError });
+      setCart({});
+      queryClient.invalidateQueries({ queryKey: ['buyer-orders'] });
     } catch (err: any) {
       setOrderError(err.message || 'Could not place order. Please try again.');
     } finally {
@@ -216,7 +218,7 @@ export default function BuyerStore() {
                 setOrderError(null);
                 setCheckoutOpen(true);
               }}
-              className="h-[46px] justify-center rounded-full bg-green px-5"
+              className="h-[46px] justify-center rounded-full bg-deep px-5"
             >
               <T className="font-sans-bold text-[15px] text-white">Checkout</T>
             </Pressable>
@@ -230,9 +232,33 @@ export default function BuyerStore() {
           <View className="gap-3 py-2">
             <T className="font-display text-2xl text-green">Order Received!</T>
             <T className="font-sans-bold text-base text-ink">Order #{orderSuccess.orderId}</T>
-            <T className="text-sm text-muted-2">
-              Your order has been logged with {storeName}. You can chat with the seller on WhatsApp to confirm delivery details or track updates.
-            </T>
+            {orderSuccess.payment?.bank_account_number ? (
+              <View className="gap-1.5 rounded-2xl border border-line bg-surface p-4">
+                <T className="font-sans-bold text-sm">
+                  Transfer {orderSuccess.payment.amount != null ? naira(Number(orderSuccess.payment.amount)) : 'the total'} to:
+                </T>
+                <T className="text-sm text-muted-2">{orderSuccess.payment.bank_name}</T>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Copy account number ${orderSuccess.payment.bank_account_number}`}
+                  onPress={() => Clipboard.setStringAsync(orderSuccess.payment.bank_account_number)}
+                  className="flex-row items-center justify-between"
+                >
+                  <T className="font-display text-2xl tracking-[1px]">{orderSuccess.payment.bank_account_number}</T>
+                  <T className="font-sans-bold text-sm text-green">Copy</T>
+                </Pressable>
+                <T className="text-sm text-muted-2">{orderSuccess.payment.bank_account_name}</T>
+                <T className="text-xs text-muted">
+                  {orderSuccess.payment.payment_instructions || 'Your payment is confirmed automatically once it arrives.'}
+                </T>
+              </View>
+            ) : orderSuccess.paymentError ? (
+              <T className="text-sm text-danger">{orderSuccess.paymentError}</T>
+            ) : (
+              <T className="text-sm text-muted-2">
+                Your order has been logged with {storeName}. You can chat with the seller on WhatsApp to confirm delivery details or track updates.
+              </T>
+            )}
             {orderSuccess.whatsappUrl ? (
               <Button
                 title="Chat on WhatsApp"
@@ -268,7 +294,7 @@ export default function BuyerStore() {
 
             <SheetField
               label="Your Full Name"
-              placeholder="e.g. Chioma Adeyemi"
+              placeholder="Your name"
               value={customerName}
               onChangeText={setCustomerName}
             />
@@ -317,7 +343,7 @@ export default function BuyerStore() {
             </View>
 
             {isSubmitting ? (
-              <View className="h-[52px] items-center justify-center rounded-full bg-green">
+              <View className="h-[52px] items-center justify-center rounded-full bg-deep">
                 <ActivityIndicator color="#fff" />
               </View>
             ) : (

@@ -28,13 +28,13 @@ function EmptyOrders() {
         When someone pays on your store, their order appears here and we'll notify you.
       </T>
       <Link href="/share" asChild>
-        <Pressable accessibilityRole="button" className="mt-2 h-[52px] justify-center rounded-full bg-green px-6">
+        <Pressable accessibilityRole="button" className="mt-2 h-[52px] justify-center rounded-full bg-deep px-6">
           <T className="font-sans-bold text-base text-white">Share your store link</T>
         </Pressable>
       </Link>
       <Link href="/add-product" asChild>
         <Pressable accessibilityRole="link" className="min-h-[44px] justify-center">
-          <T className="font-sans-bold text-[15px] text-green">Add more products</T>
+          <T className="font-sans-bold text-[15px] text-deep">Add more products</T>
         </Pressable>
       </Link>
     </View>
@@ -144,7 +144,7 @@ export default function Orders() {
                   </Pressable>
                 </Link>
                 <Link href={href} asChild>
-                  <Pressable accessibilityRole="button" className="h-11 flex-1 items-center justify-center rounded-full bg-green">
+                  <Pressable accessibilityRole="button" className="h-11 flex-1 items-center justify-center rounded-full bg-deep">
                     <T className="font-sans-bold text-sm text-white">{nextAction}</T>
                   </Pressable>
                 </Link>

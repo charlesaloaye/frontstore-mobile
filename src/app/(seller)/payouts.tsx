@@ -35,11 +35,7 @@ export default function Payouts() {
   });
 
   const withdrawMutation = useMutation({
-    mutationFn: () => {
-      const amount = wallet?.available_balance_kobo ?? 0;
-      if (amount <= 0) throw new Error('There’s nothing available to withdraw yet.');
-      return requestWithdrawal(amount, otpCode);
-    },
+    mutationFn: () => requestWithdrawal(availKobo, otpCode),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wallet'] });
       queryClient.invalidateQueries({ queryKey: ['payout-history'] });
@@ -71,9 +67,9 @@ export default function Payouts() {
 
   const availKobo = wallet?.available_balance_kobo ?? 0;
   const pendingKobo = wallet?.pending_balance_kobo ?? 0;
-  const bankName = wallet?.bank_name || 'No payout account yet';
-  const accNo = wallet?.account_number ? `••••${String(wallet.account_number).slice(-4)}` : 'Add it on the web dashboard';
-  const accHolder = wallet?.account_name || 'Payout account';
+  const bankName = wallet?.bank_name || 'Bank account';
+  const accNo = wallet?.account_number ? `••••${wallet.account_number.slice(-4)}` : 'Not linked';
+  const accHolder = wallet?.account_name || 'Payout Account';
 
   return (
     <Screen>

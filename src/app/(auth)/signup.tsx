@@ -4,15 +4,12 @@ import { Link, router } from 'expo-router';
 import { Mail } from 'lucide-react-native';
 import { Button, Screen, T } from '@/components/ui';
 import { BottomBar, Heading, Labelled, Progress, RingInput, StepHeader } from '@/features/setup/parts';
-import { sendEmailOtp, loginWithGoogle, loginWithApple } from '@/api/auth';
-import { GoogleIcon, AppleIcon } from '@/components/SocialIcons';
+import { sendEmailOtp } from '@/api/auth';
 
 export default function Signup() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [appleLoading, setAppleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -28,56 +25,6 @@ export default function Signup() {
       setErrorMsg(err.message || 'Could not send verification code. Please check your email.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleGoogleAuth = async () => {
-    const targetEmail = valid ? email.trim() : 'merchant@frontstore.ng';
-    const targetName = name.trim() || 'Frontstore Merchant';
-
-    setGoogleLoading(true);
-    setErrorMsg(null);
-    try {
-      const res = await loginWithGoogle({
-        email: targetEmail,
-        name: targetName,
-        google_id: `g_${Date.now()}`,
-      });
-
-      if (res.is_new_user) {
-        router.replace('/choose-mode');
-      } else {
-        router.replace('/home');
-      }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Google login failed. Please try again.');
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
-
-  const handleAppleAuth = async () => {
-    const targetEmail = valid ? email.trim() : `merchant_${Date.now()}@privaterelay.appleid.com`;
-    const targetName = name.trim() || 'Apple Merchant';
-
-    setAppleLoading(true);
-    setErrorMsg(null);
-    try {
-      const res = await loginWithApple({
-        email: targetEmail,
-        name: targetName,
-        apple_id: `apple_${Date.now()}`,
-      });
-
-      if (res.is_new_user) {
-        router.replace('/choose-mode');
-      } else {
-        router.replace('/home');
-      }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Apple login failed. Please try again.');
-    } finally {
-      setAppleLoading(false);
     }
   };
 
@@ -112,44 +59,6 @@ export default function Signup() {
               left={<Mail size={18} color="#0B6E4F" strokeWidth={2} />}
             />
           </Labelled>
-          <View className="flex-row items-center gap-3">
-            <View className="h-px flex-1 bg-line-2" />
-            <T className="text-[13px] text-muted">or</T>
-            <View className="h-px flex-1 bg-line-2" />
-          </View>
-          <View className="gap-2.5">
-            <Pressable
-              accessibilityRole="button"
-              disabled={googleLoading || appleLoading}
-              onPress={handleGoogleAuth}
-              className="h-[54px] flex-row items-center justify-center gap-2.5 rounded-full border border-line-2 bg-surface active:opacity-80"
-            >
-              {googleLoading ? (
-                <ActivityIndicator color="#0E1A15" size="small" />
-              ) : (
-                <>
-                  <GoogleIcon size={20} />
-                  <T className="font-sans-semibold text-base text-ink">Continue with Google</T>
-                </>
-              )}
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              disabled={googleLoading || appleLoading}
-              onPress={handleAppleAuth}
-              className="h-[54px] flex-row items-center justify-center gap-2.5 rounded-full border border-line-2 bg-surface active:opacity-80"
-            >
-              {appleLoading ? (
-                <ActivityIndicator color="#0E1A15" size="small" />
-              ) : (
-                <>
-                  <AppleIcon size={20} color="#0E1A15" />
-                  <T className="font-sans-semibold text-base text-ink">Continue with Apple</T>
-                </>
-              )}
-            </Pressable>
-          </View>
         </ScrollView>
         <BottomBar>
           <Button

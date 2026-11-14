@@ -35,11 +35,11 @@ export function Screen({ className, edges = ['top'], children, ...rest }: ViewPr
 
 type BtnKind = 'primary' | 'dark' | 'outline' | 'gold' | 'ghost' | 'danger';
 const BTN: Record<BtnKind, [string, string]> = {
-  primary: ['bg-green', 'text-white'],
+  primary: ['bg-deep', 'text-white'],
   dark: ['bg-ink', 'text-bg'],
-  outline: ['border-[1.5px] border-ink bg-transparent', 'text-ink'],
+  outline: ['border-[1.5px] border-deep bg-transparent', 'text-deep'],
   gold: ['bg-gold', 'text-[#2A1B05]'],
-  ghost: ['bg-transparent', 'text-green'],
+  ghost: ['bg-transparent', 'text-deep'],
   danger: ['bg-danger', 'text-white'],
 };
 
