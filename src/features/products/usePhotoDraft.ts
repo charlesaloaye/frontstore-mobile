@@ -15,7 +15,8 @@ const GIVE_UP_MS = 90000;
 /**
  * Photo-first product drafting: pick from camera or gallery, upload, ask the
  * AI draft job to read the photos, then hand the result to `onDraft`.
- * If the AI can't read them (failed or slow), the form opens empty instead.
+ * If the AI can't read them (no credits, AI down, or slow), the form simply
+ * opens empty to type into, with no error shown.
  */
 export function usePhotoDraft(onDraft: (draft: AiProductDraftResult) => void) {
   const [stage, setStage] = useState<PhotoStage>('empty');
@@ -47,20 +48,19 @@ export function usePhotoDraft(onDraft: (draft: AiProductDraftResult) => void) {
             setStage('filled');
           } else if (result.status === 'failed' || Date.now() - startedAt > GIVE_UP_MS) {
             stopPolling();
-            setError('Nina couldn’t read these photos. Fill in the details yourself.');
             setStage('filled');
           }
         } catch {
           // Network blip: keep polling until the give-up time.
           if (Date.now() - startedAt > GIVE_UP_MS) {
             stopPolling();
-            setError('Nina couldn’t read these photos. Fill in the details yourself.');
             setStage('filled');
           }
         }
       }, POLL_MS);
-    } catch (e: any) {
-      setError(e.message || 'Nina couldn’t read these photos. Fill in the details yourself.');
+    } catch {
+      // No AI reads left or AI is down: the form opens to type into, no message.
+      // Nina works again by itself once credits or the AI service are back.
       setStage('filled');
     }
   };
